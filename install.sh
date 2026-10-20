@@ -23,6 +23,4 @@ for source in "$repo_dir"/*; do
   link "$source" "$HOME/.claude/$name"
 done
 
-link "$HOME/.agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
-link "$HOME/.agents/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 printf 'Linked %s into %s/.agents, .codex, and .claude.\n' "$repo_dir" "$HOME"

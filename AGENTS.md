@@ -1,40 +1,27 @@
-# AGENTs Commandments
-- **Always call Me ADMIN**
-- **Hereby GLOBAL means ~/.agents/**
-- **Keep repos small.**
-- **Put every file in the directory below that owns it**
-- **Do not add new top-level directories to the project/repo without asking.**
--  **TypeScript only.** All scripts, tools and application code are TypeScript. Do not add Rust, Python, shell or any other language unless the ADMIN explicitly authorizes it for that change. Existing non-TypeScript code stays until it is ported or authorized.
--  **One config per test runner.** `playwright.config.ts` (`PW_SUITE=<name>`) and `vitest.config.ts` (`VITEST_SUITE=<name>`) are the only ones; add a suite to them rather than a new config file.
-- **Prefer oxlint for linting typescript projects**
-- **Always use motion.dev and shadcn and react for frontend apps**
-- **Always use effect.ts for server and client**
-- **Always validate fixes/features with tests**
-- **Single branch and no worktrees unless specified by ADMIN**.
-- **No leftover documents.** Do not add Markdown or JSON files that nothing reads later: no progress notes, handoffs, per-task summaries, audit dumps or generated receipts. A document is allowed only if code, a test or a maintainer will read it again, and it lives in the directory above that fits.
-- **Always clean garbage and leftover files on disk and processes.**
-- **All change requests or bug fixes should follow this process**:
-  - Ask whether the user wants a written plan, unless already specified.
-  - Naming convention is `$date-$title.md` (`2026-10-20-ps3-mw3-aot-coverage.md`). `$date` is `YYYY-MM-DD`.
-  - If requested, inspect the relevant code and write the plan only using template in docs/plans/.plan.md or in $GLOBAL/.plan.md (project specific template overrules the global template).
-- **No patches.** No .patch or .diff are allowed, if any vendored project needs a change we shall do it in the source code.
+# AGENTS
 
-## Projects Directory structure
-**Alongside the directory structure of the source code which is defined by the project's technology stack and technical details all projects shall have**:
-### docs/
-#### plans/
-Plans and proposals. One file each, named `$date-$platform-$title.md` (`2026-10-20-ps3-mw3-aot-coverage.md`). `$date` is `YYYY-MM-DD`; `$platform` is the target (`ps1`, `ps2`, `ps3`, `psp`, `win32`, `minecraft`, `web`, `all`, ...). A finished or abandoned plan is deleted, not archived; git keeps the history.
-#### specs/
-TBA
-#### reports/
-Every benchmark, test, verification and evidence result, in one place. One directory (or one `.md`) per run, named `$date-$title`. Only Markdown summaries are tracked; raw output (json, png, logs, traces) stays local and is gitignored. Playwright and playthrough output is written here by the config, never next to the code.
-#### tools/
-All scripts, build and install tooling, benchmarks drivers, checks, generators and one-off utilities, plus their fixtures. Nothing executable lives at the repo root or in a `scripts/` directory.
-### .work
-Gitignored scratch space for logs, probes and temporary output. Each agent is hereby commanded to delete it's own trash after completing ADMIN request.
+Address the user as ADMIN. GLOBAL means `~/.agents/`.
 
+## Rules
+- **Single branch, no worktrees**, unless ADMIN says otherwise.
+- **TypeScript first.** All scripts, tools and app code are TypeScript. Add no other language without ADMIN's explicit approval for that change. Existing non-TypeScript code stays until ported or approved.
+  - **Effect.ts** is a mandatory dependency in every TypeScript project, client and server.
+  - **Oxlint + Oxfmt** are initialized and run via `npm run lint`. Install the [anti-slop](https://github.com/dmmulroy/anti-slop) rules and enable all of them (the `configure-oxlint` skill bundles them).
+  - **One config per test runner:** `playwright.config.ts` (`PW_SUITE=<name>`) and `vitest.config.ts` (`VITEST_SUITE=<name>`). Add a suite rather than a new config file.
+- **Change requests and bug fixes:** ask once whether ADMIN wants a written plan. If yes, inspect the relevant code, then write it to `docs/plans/$date-$platform-$title.md` using `docs/plans/PLAN_TEMPLATE.md`, falling back to GLOBAL `PLAN_TEMPLATE.md`.
+- **Subagents:** split any divisible task across subagents. Ask ADMIN once per session for model and effort; default is the same model, one reasoning level lower.
+- **No leftover files.** Add no Markdown or JSON that nothing will read again (progress notes, handoffs, summaries, audit dumps, receipts). Delete your own scratch files, `.work` contents and stray processes when the request is done.
+- **No patch files for vendored repos.**
 
+## Directory structure
+Never add a top-level directory without asking. Beyond the stack's own source layout, every project has:
 
-
-
-**For Codex-specific instructions, follow @CODEX.md.**
+- `docs/plans/`: plans and proposals, `$date-$platform-$title.md` (`YYYY-MM-DD`; platform is `ps3`, `win32`, `web`, `all`, ...). Delete finished or abandoned plans; git keeps history.
+- `docs/reports/`: every benchmark, test and verification result, one dir or `.md` per run, `$date-$title`. Track only Markdown summaries; raw output (json, png, logs, traces) is gitignored. Playwright and playthrough output is written here by the config.
+- `docs/tools/`: all scripts, build/install tooling, benchmark drivers, checks, generators and their fixtures. Nothing executable at the repo root or in `scripts/`.
+- `.work/`: gitignored scratch space.
+- `specs/`: tests that define the behavior of the software, replacing a written spec.
+  - Black-box only: no imports from or calls into the codebase.
+  - Playwright for UI and client; plain TS tests for backend.
+  - One file per area (a vertical of the app).
+  - In a repo without specs after ADMIN explicit request to add specs, propose areas from the codebase and get ADMIN's approval before writing any.
