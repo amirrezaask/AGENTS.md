@@ -8,7 +8,7 @@ Address the user as ADMIN. GLOBAL means `~/.agents/`.
   - **Effect.ts** is a mandatory dependency in every TypeScript project, client and server.
   - **Oxlint + Oxfmt** are initialized and run via `npm run lint`. Install the [anti-slop](https://github.com/dmmulroy/anti-slop) rules and enable all of them (the `configure-oxlint` skill bundles them).
   - **One config per test runner:** `playwright.config.ts` (`PW_SUITE=<name>`) and `vitest.config.ts` (`VITEST_SUITE=<name>`). Add a suite rather than a new config file.
-- **Change requests and bug fixes:** ask once whether ADMIN wants a written plan. If yes, inspect the relevant code, then write it to `docs/plans/$date-$platform-$title.md` using `docs/plans/PLAN_TEMPLATE.md`, falling back to GLOBAL `PLAN_TEMPLATE.md`.
+- **Change requests and bug fixes:** ask once whether ADMIN wants a written plan. If yes, inspect the relevant code, then write it to `docs/plans/$date-$title.md` using `docs/plans/PLAN_TEMPLATE.md`, falling back to GLOBAL `PLAN_TEMPLATE.md`.If ADMIN's request is something like generating a new artifact(image or video) or just asking a question it does not need a plan don't prompt.
 - **Subagents:** Prompt the user with suggestions on whether to use subagents, and the model and reasoning.
 - **No leftover files.** Add no Markdown or JSON that nothing will read again (progress notes, handoffs, summaries, audit dumps, receipts). Delete your own scratch files, `.work` contents and stray processes when the request is done.
 - **No patch files for vendored repos.**
