@@ -43,6 +43,7 @@ Node.js 26.5.1 on macOS; starting revision `e0e14eb`.
 | V7 | `git diff --check` | Clean patch | Passed | Passed |
 | V8 | `npm ci --ignore-scripts` | Reproducible dependency installation | Passed; subsequent tests, lint, and catalog validation passed | Passed |
 | V9 | Compare configured rules with pinned upstream exports | All generic and Effect rules enabled | All 23 exports configured as errors | Passed |
+| V10 | Main checkout clean install and global refresh | Reproducible final installation | `npm ci`, 12 tests, lint, five-skill validation, and installation passed; second dry-run proposed no changes | Passed |
 
 ## Findings
 
@@ -54,7 +55,8 @@ Node.js 26.5.1 on macOS; starting revision `e0e14eb`.
 
 ## Follow-up
 
-Refresh installed links and the main checkout's dependencies after integrating master.
+None. Implementation `14fa622` is integrated on master; dependencies and installed
+links have been refreshed and verified.
 
 ## Artifacts
 
