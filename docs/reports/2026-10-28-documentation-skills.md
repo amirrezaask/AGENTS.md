@@ -41,6 +41,7 @@ Node.js 24.22.1 on macOS; work started from master `711efce`.
 | V4 | `npm run check:skills` | Valid five-skill catalog | All 5 passed | Passed |
 | V5 | Independent extraction and template review | No lost policy or template content | All original obligations retained; all four templates byte-identical; all six skill/template links resolve | Passed |
 | V6 | `git diff --check` | Clean patch | Passed | Passed |
+| V7 | Real install and filesystem inspection | Readable canonical templates and mandatory skill links | 12 template aliases, 20 skill links, and 6 AGENTS.md pointers verified; second dry-run proposed no changes | Passed |
 
 ## Findings
 
@@ -52,8 +53,8 @@ Node.js 24.22.1 on macOS; work started from master `711efce`.
 
 ## Follow-up
 
-Integrate master, refresh the actual global installation, and verify its template
-aliases and mandatory skill links before marking the work complete.
+None. Implementation `31fa731` is integrated on master; the actual global
+installation has been refreshed and verified.
 
 ## Artifacts
 
