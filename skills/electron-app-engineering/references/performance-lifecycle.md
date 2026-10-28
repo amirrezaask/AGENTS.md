@@ -1,50 +1,11 @@
-# Performance Lifecycle
+# Performance and lifecycle
 
-> Load when the change concerns responsiveness, storage, credentials, lifecycle, resilience, or native UX.
+Measure startup milestones separately: process start, app ready, navigation, first render/interaction, and background-service readiness. Defer noncritical services only when their readiness contract permits it. Check main-process synchronous I/O, subprocesses, CPU work, and large serialization before optimizing renderer code.
 
-## Performance rules
+For streaming/log/terminal windows, bound retained history and queued messages, batch updates, and pause hidden consumers. Measure repeated window open/close, workspace switches, and reconnects for retained WebContents, listeners, ports, workers, and timers.
 
-Measure before and after; no optimization claim without a measurement or stated proxy metric.
+Give each long-lived job an owner independent of a window when it should survive window closure. Handle second-instance and deep-link inputs consistently at cold start and while running. Validate restored bounds against current displays. Define bounded shutdown ordering for jobs, streams, databases, writes, and update installation.
 
-- Capture cold/warm startup milestones: process start, app ready, window creation, navigation start, first render, `ready-to-show`, first interaction, background-service readiness.
-- Defer non-critical imports, services, migrations, menus, indexing, update checks, telemetry until needed or post-first-interaction.
-- Bundle main/preload/renderer/statics for Electron's actual Chromium version; no legacy polyfills.
-- Main process: no synchronous I/O, sync subprocess APIs, sync IPC, large JSON operations, CPU loops.
-- Renderer: keep tasks short; schedule, virtualize, parse incrementally, offload to workers.
-- Terminal/log/event UIs: coalesce chunks, cap retained history, virtualize rows, pause hidden consumers, propagate backpressure upstream.
-- No network fetches for critical UI resources during startup.
-- Remove the default application menu early if unused.
-- Prevent white flashes: `ready-to-show` or window background matching the initial renderer background.
-- Profile memory after repeated window open/close, workspace switches, reconnects, long streams. Detached listeners and hidden WebContents are leaks.
+Use Electron's path APIs for platform state locations. Separate large caches from durable user data. Check the actual `safeStorage` backend, particularly Linux plaintext fallbacks. Treat cookie-encryption changes as storage migrations and test rollback where supported.
 
-## Storage, credentials, privacy
-
-- Use `app.getPath()` locations; no hand-built platform paths.
-- Config + modest durable state in `userData`; large caches in a separate cache/`sessionData` location so they don't bloat backups.
-- Secrets via `safeStorage` (or OS credential facility). Check Linux backend behavior; plaintext fallback is not secure.
-- Plan migrations before enabling cookie encryption — reverting invalidates the existing cookie store.
-- Persistent migrations atomic, versioned, recoverable across downgrade/interrupted update where the product requires it.
-- Redact tokens, file contents, personal data, command args, URLs before logging/crash reporting.
-- Start crash reporting early when used; obtain consent; document retention/upload behavior.
-- Validate selected paths, archive entries, download names, symlinks before privileged file operations.
-
-## Lifecycle and resilience
-
-- Decide single-instance explicitly. If yes: acquire lock before creating state; validate second-instance args safely.
-- Handle deep links identically for cold start and already-running instance.
-- Observe renderer/child-process exits; classify clean exit vs crash vs kill vs OOM vs launch failure vs integrity failure before restarting.
-- Detect renderer unresponsiveness; recover without discarding user state.
-- Don't tie long-lived jobs, terminals, sessions to a BrowserWindow unless closing it is defined to terminate them.
-- Graceful shutdown ordering for windows, streams, utility processes, databases, pending writes, update install — with bounded timeouts.
-- Respond to suspend/resume, power-source, thermal changes when running heavy background work.
-- Restore window bounds only after validating against currently connected displays.
-- Make tray/dock/quit-on-close/reopen native per OS; don't inherit one platform's assumptions.
-
-## Native UX and accessibility
-
-- Use native menus, dialogs, notifications, recent documents, file associations, shortcuts where they aid OS integration.
-- Preserve keyboard navigation, visible focus, semantic HTML, reduced motion, high contrast, zoom, screen-reader labels, text selection.
-- Don't globally force accessibility mode; build and test accessible UI instead.
-- Respect system theme/contrast; never encode state in color alone.
-- Test frameless/title-bar layouts on every target OS, display scale, and left/right window-control arrangement.
-- Don't hijack OS-reserved shortcuts or browser conventions without strong product reason + discoverable alternative.
+Classify child/renderer exit causes before restarting. Preserve recoverable user state across crashes and unresponsiveness. For heavy background jobs, consider suspend/resume and power constraints. Test affected native controls, title bars, menus, and shortcuts on their target OS.

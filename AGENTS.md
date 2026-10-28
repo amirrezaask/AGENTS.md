@@ -18,6 +18,7 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 **Each new session should start from a clean git worktree from a branch (prompt user for branch default to main/master)**
 **Each agent round should conclude with a commit.**
 **Commit messages should reference the brief and plan document of requested change(in absence of said documents, commit message should just echo user's request)**
+**Branch names should not have `codex` or `claude` as prefix, they should be prefixed by `feat-` or `fix-`.**
 
 ### Language and Stack
 **TypeScript first.** All scripts, tools and app code are TypeScript. Add no other language without ADMIN's explicit approval for that change. Existing non-TypeScript code stays until ported or approved.
