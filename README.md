@@ -9,18 +9,14 @@ short descriptions. No skill loads all personal notes automatically.
 | Skill | Task trigger |
 | --- | --- |
 | `configure-oxlint` | Lint setup, migration, and configuration problems |
-| `electron-app-engineering` | Electron APIs, desktop lifecycle, and distribution |
-| `frontend-performance` | Web rendering, loading, responsiveness, and memory problems |
-| `perfguy` | Systems performance, data layout, and event-pipeline optimization |
-| `rust-gpu-performance` | Rust GPU rendering, shaders, and frame latency |
-| `webapp-verification` | Runtime verification of changed web UI |
-| `koloop-game-testing` | Koloop/GameBox browser game testing and audio policy |
-| `koloop-promotion` | Koloop promotional video covers and captions |
-| `ps3-aot` | Koloop/GameBox PS3 compilation and generated-code benchmarks |
+| `performance` | Systems, browser, and GPU performance investigations and optimization |
 | `resource-bounded-runs` | Large copies and resource-heavy build or test processes |
 
-`dod` is consolidated into `perfguy`. The old `amirreza-md` memory loader is
-replaced by the four scoped project/resource skills above.
+`performance` consolidates `perfguy`, `frontend-performance`, and
+`rust-gpu-performance`, with specialized references loaded only as needed.
+`webapp-verification` is retired. Koloop game testing, promotion, and PS3 AOT
+skills now live in GameBox's `.claude/skills/`, with task-specific links in its
+`AGENTS.md`.
 
 ## Install
 
@@ -40,7 +36,7 @@ rerun installation after adding, removing or renaming a skill.
 
 ```sh
 npm run install:agents -- --list
-npm run install:agents -- frontend-performance
+npm run install:agents -- performance
 ```
 
 Known symlinks from `~/dev/Amirreza.md` are migrated automatically. Full installs

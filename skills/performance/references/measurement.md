@@ -27,3 +27,19 @@ semantics warrant them. Race-freedom alone does not prove ordering or idempotenc
 Record revision, environment, workload, baseline, candidate, variance, changed resource
 costs, and limitations. Choose a regression guard that captures the mechanism or user
 budget without making noisy microsecond timings a brittle unit-test requirement.
+
+## Browser measurement
+
+Reproduce the user path on a production build and representative device/data. Record
+load state, route, cache state, and network/CPU conditions. Development-mode overhead
+can help debugging but cannot establish shipped performance.
+
+Choose evidence for the symptom: a browser performance trace for input-to-paint and
+layout, a component profiler for render fan-out, a bundle/network trace for loading,
+or repeated-cycle heap snapshots for retained memory. Separate field distributions
+from reproducible lab experiments; segment field results by route and device rather
+than trusting one aggregate score.
+
+Use the project's user-visible budget and verify current metric definitions before
+setting thresholds. After correctness checks, repeat the same interaction/load cycle;
+report before/after measurements and unverified field effects.

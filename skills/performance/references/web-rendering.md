@@ -42,3 +42,10 @@ Prefer compositor-friendly animation where it gives the intended effect, but mea
 layer count, paint, and raster cost. Transform/opacity do not guarantee free frames.
 Avoid publishing framework state on every animation tick unless its measured work is
 acceptable; keep semantic completion state synchronized.
+
+## Choosing the intervention
+
+Prefer removing repeated work, narrowing invalidation, or moving work off the critical
+path over adding memoization. Measure transfer, worker startup, and publication cost
+when moving computation off-thread. Verify installed framework APIs before depending
+on version-specific behavior.

@@ -49,3 +49,23 @@ visual/depth semantics.
 Keep deployment CPU baseline and unwind/crash requirements when testing compiler flags.
 Native-target or PGO builds need representative hardware/workloads and can change
 portability. Preserve symbols needed for profiling and crash diagnosis.
+
+## Measurement and acceptance
+
+Record target GPU/backend, driver/OS, resolution, refresh rate, present mode, build,
+and workload. Separate CPU update/layout/encode, GPU passes, upload, acquire/present
+wait, and queueing. CPU wall time around submission does not measure GPU execution.
+
+Reproduce in release mode with profiling symbols. Compare frame distributions and
+input-to-present behavior as appropriate; average FPS can hide stutter and deep frame
+queues. Match before/after conditions and retain correctness/visual evidence.
+
+Choose a change tied to one measured counter. Preserve draw/blend order, buffer
+ownership, numerical precision, and resource lifetime. Validate the affected backends;
+capability and API availability depend on the project's wgpu version and adapter.
+Check installed documentation before prescribing version-specific methods or flags.
+
+Report CPU/GPU/wait breakdown, before/after distributions, allocation/upload/draw counts
+relevant to the fix, visual/correctness checks, and remaining hardware coverage. Avoid
+unsafe code or lower shader precision without a measured benefit and an explicit
+invariant or error tolerance.
