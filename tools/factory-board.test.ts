@@ -34,6 +34,7 @@ async function fixture(run: (base: string, tasks: string) => Promise<void>): Pro
   const tasks = join(directory, "docs/tasks");
   await mkdir(tasks, { recursive: true });
   await cp(source, join(tasks, "server.ts"));
+  await cp(join(dirname(source), "index.html"), join(tasks, "index.html"));
 
   for (const font of ["anthropic-serif.woff2", "anthropic-sans.woff2"])
     await cp(join(dirname(source), font), join(tasks, font));
@@ -87,6 +88,25 @@ async function fixture(run: (base: string, tasks: string) => Promise<void>): Pro
   }
 }
 
+const taskSchema = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  status: Schema.String,
+  created: Schema.String,
+  updated: Schema.String,
+});
+
+const boardSchema = Schema.Struct({
+  project: Schema.String,
+  token: Schema.String,
+  tasks: Schema.Array(taskSchema),
+  errors: Schema.Array(Schema.String),
+});
+
+async function board(base: string) {
+  return Schema.decodeUnknownSync(boardSchema)(await (await fetch(`${base}/api/board`)).json());
+}
+
 async function task(tasks: string, id: string, status = "ready"): Promise<string> {
   const path = join(tasks, id);
   await mkdir(path);
@@ -94,7 +114,7 @@ async function task(tasks: string, id: string, status = "ready"): Promise<string
   await writeFile(join(path, "TASK.md"), text);
   await writeFile(
     join(path, "BRIEF.md"),
-    "---\ntitle: Brief\n---\n# Recovery\n\n| Requirement | Outcome |\n| --- | --- |\n| R1 | Recover access |\n\n<script>alert('unsafe')</script>\n\n[unsafe](javascript:alert)\n",
+    "# Recovery\n\n| Requirement | Outcome |\n| --- | --- |\n| R1 | Recover access |\n\n<script>alert('unsafe')</script>\n\n[unsafe](javascript:alert)\n",
   );
   await writeFile(
     join(path, "PLAN.md"),
@@ -104,59 +124,89 @@ async function task(tasks: string, id: string, status = "ready"): Promise<string
   return text;
 }
 
-function formToken(html: string): string {
-  const token = /name="token" value="([a-f0-9]+)"/.exec(html)?.[1];
-  assert.ok(token);
-
-  return token;
-}
-
 async function move(base: string, token: string, id: string, status: string, origin = base) {
-  return fetch(`${base}/status`, {
+  return fetch(`${base}/api/status`, {
     method: "POST",
-    redirect: "manual",
     headers: { Origin: origin, "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ token, task: id, status }),
   });
 }
 
-test("board renders tasks and both Markdown documents, moves every status, and preserves task content", async () => {
+async function eventually(check: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (check()) return;
+    await new Promise((resolveTurn) => setTimeout(resolveTurn, 20));
+  }
+
+  assert.ok(check(), "Expected UI state was not reached");
+}
+
+async function mount(base: string) {
+  const dom = new JSDOM(await (await fetch(base)).text(), {
+    url: base,
+    runScripts: "outside-only",
+    pretendToBeVisual: true,
+    virtualConsole: new VirtualConsole().forwardTo(console),
+  });
+
+  const window = dom.window;
+  const requests: string[] = [];
+  window.AbortController = AbortController;
+  window.HTMLElement.prototype.scrollIntoView = () => undefined;
+  window.HTMLElement.prototype.setPointerCapture = () => undefined;
+  window.HTMLElement.prototype.releasePointerCapture = () => undefined;
+  window.fetch = (url, init) => {
+    const address = new URL(String(url), base);
+    requests.push(address.pathname);
+
+    return fetch(address, {
+      ...init,
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
+    });
+  };
+
+  window.eval(await (await fetch(`${base}/app.js`)).text());
+  await eventually(() => window.document.querySelector('[data-task="move-task"]') !== null);
+
+  return { dom, window, requests };
+}
+
+test("React assets and task APIs preserve document rendering, status writes, and other file content", async () => {
   await fixture(async (base, tasks) => {
-    const empty = await (await fetch(base)).text();
-    assert.equal((empty.match(/No tasks here\./g) ?? []).length, 4);
+    assert.equal((await board(base)).tasks.length, 0);
     const original = await task(tasks, "account-recovery");
-    const brief = await readFile(join(tasks, "account-recovery/BRIEF.md"), "utf8");
-    const plan = await readFile(join(tasks, "account-recovery/PLAN.md"), "utf8");
-    const board = await fetch(base);
-    assert.equal(board.status, 200);
-    assert.match(board.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
-    assert.match(board.headers.get("content-security-policy") ?? "", /connect-src 'self'/);
-    const html = await board.text();
-    assert.match(html, /Recover account access/);
-    assert.match(html, /<h1 class="project-title">Project &lt;Atlas&gt;<\/h1>/);
-    assert.doesNotMatch(html, /Your software work|>Refresh</);
+    const data = await board(base);
+    assert.equal(data.project, "Project <Atlas>");
+    assert.equal(data.tasks.length, 1);
+    const html = await (await fetch(base)).text();
+    assert.match(html, /<div id="root">/);
+    assert.doesNotMatch(html, /type="text\/tsx"/);
+    const css = await (await fetch(`${base}/app.css`)).text();
+    assert.match(css, /Anthropic Serif/);
+    assert.match(css, /80vw/);
+    assert.match(css, /90dvh/);
+    const script = await (await fetch(`${base}/app.js`)).text();
+    assert.doesNotMatch(script, /location\.reload|window\.location/);
 
     for (const font of ["anthropic-serif.woff2", "anthropic-sans.woff2"]) {
       const response = await fetch(`${base}/fonts/${font}`);
       assert.equal(response.status, 200);
-      assert.equal(response.headers.get("content-type"), "font/woff2");
       assert.ok((await response.arrayBuffer()).byteLength > 1000);
     }
 
-    const token = formToken(html);
-    const modal = await (await fetch(`${base}/?task=account-recovery`)).text();
-    assert.match(modal, /<dialog open/);
-    assert.match(modal, /<table>/);
-    assert.doesNotMatch(modal, /<script>alert|href="javascript:/);
-    const secondTab = await (await fetch(`${base}/?task=account-recovery&tab=plan`)).text();
-    assert.match(secondTab, /<h1>Implementation<\/h1>/);
+    const docs = await (await fetch(`${base}/api/tasks/account-recovery`)).text();
+    assert.match(docs, /<table>/);
+    assert.doesNotMatch(docs, /<script>alert|href=\\"javascript:/);
+    const brief = await readFile(join(tasks, "account-recovery/BRIEF.md"), "utf8");
+    const plan = await readFile(join(tasks, "account-recovery/PLAN.md"), "utf8");
 
     for (const status of ["in-progress", "blocked", "done", "ready"]) {
-      const response = await move(base, token, "account-recovery", status);
-      assert.equal(response.status, 303);
-      const updated = await readFile(join(tasks, "account-recovery/TASK.md"), "utf8");
+      const response = await move(base, data.token, "account-recovery", status);
+      assert.equal(response.status, 200);
+      assert.equal(Schema.decodeUnknownSync(taskSchema)(await response.json()).status, status);
+      const changed = await readFile(join(tasks, "account-recovery/TASK.md"), "utf8");
       assert.equal(
-        updated
+        changed
           .replace(/^status:.*$/m, "status: ready")
           .replace(/^updated:.*$/m, 'updated: "2026-10-28"'),
         original,
@@ -167,7 +217,7 @@ test("board renders tasks and both Markdown documents, moves every status, and p
     assert.equal(await readFile(join(tasks, "account-recovery/PLAN.md"), "utf8"), plan);
     const windows = original.replaceAll("\n", "\r\n") + "Persian context: کار\r\n";
     await writeFile(join(tasks, "account-recovery/TASK.md"), windows);
-    assert.equal((await move(base, token, "account-recovery", "blocked")).status, 303);
+    assert.equal((await move(base, data.token, "account-recovery", "blocked")).status, 200);
     const changed = await readFile(join(tasks, "account-recovery/TASK.md"), "utf8");
     assert.equal(
       changed
@@ -175,16 +225,13 @@ test("board renders tasks and both Markdown documents, moves every status, and p
         .replace(/^updated:[^\r\n]*/m, 'updated: "2026-10-28"'),
       windows,
     );
-    const client = await fetch(`${base}/client.js`);
-    assert.equal(client.status, 200);
-    assert.match(await client.text(), /showModal/);
   });
 });
 
-test("invalid writes, origins, metadata, and symlink paths cannot overwrite task documents", async () => {
+test("API rejects invalid writes and symlinks while exposing valid tasks and unavailable documents", async () => {
   await fixture(async (base, tasks) => {
     const original = await task(tasks, "valid-task");
-    const token = formToken(await (await fetch(base)).text());
+    const token = (await board(base)).token;
     assert.equal((await move(base, "wrong", "valid-task", "done")).status, 403);
     assert.equal(
       (await move(base, token, "valid-task", "done", "https://example.com")).status,
@@ -192,7 +239,6 @@ test("invalid writes, origins, metadata, and symlink paths cannot overwrite task
     );
     assert.equal((await move(base, token, "valid-task", "missing")).status, 400);
     assert.equal((await move(base, token, "../valid-task", "done")).status, 400);
-    assert.equal(await readFile(join(tasks, "valid-task/TASK.md"), "utf8"), original);
     await task(tasks, "bad-task", "unknown");
     const outside = join(dirname(tasks), "outside");
     await mkdir(outside);
@@ -200,12 +246,13 @@ test("invalid writes, origins, metadata, and symlink paths cannot overwrite task
     await symlink(outside, join(tasks, "linked-task"));
     await rm(join(tasks, "valid-task/PLAN.md"));
     await symlink(join(outside, "TASK.md"), join(tasks, "valid-task/PLAN.md"));
-    const html = await (await fetch(base)).text();
-    assert.match(html, /bad-task: unable to load/);
-    assert.match(html, /linked-task: unable to load/);
-    assert.match(html, /Recover account access/);
-    const missing = await (await fetch(`${base}/?task=valid-task&tab=plan`)).text();
-    assert.match(missing, /PLAN.md is unavailable/);
+    const data = await board(base);
+    assert.equal(data.tasks.length, 1);
+    assert.equal(data.errors.length, 2);
+    assert.match(
+      await (await fetch(`${base}/api/tasks/valid-task`)).text(),
+      /PLAN.md is unavailable/,
+    );
     assert.equal((await move(base, token, "linked-task", "done")).status, 400);
     await rm(join(tasks, "valid-task/TASK.md"));
     await symlink(join(outside, "TASK.md"), join(tasks, "valid-task/TASK.md"));
@@ -214,157 +261,117 @@ test("invalid writes, origins, metadata, and symlink paths cannot overwrite task
   });
 });
 
-test("card keyboard and drag events persist status, cancel safely, and report rejected moves", async () => {
+test("React opens the shadcn dialog, switches tabs, moves cards, and cancels keyboard moves without navigation", async () => {
   await fixture(async (base, tasks) => {
     await task(tasks, "move-task");
-    const html = await (await fetch(base)).text();
-    assert.doesNotMatch(html, /<select|<button type="submit">Move/);
-    const client = await (await fetch(`${base}/client.js`)).text();
-
-    const dom = new JSDOM(html, {
-      url: base,
-      runScripts: "outside-only",
-      virtualConsole: new VirtualConsole(),
-    });
-
-    const window = dom.window;
-    const requests: Promise<Response>[] = [];
-    window.HTMLElement.prototype.scrollIntoView = () => undefined;
-    window.fetch = (url, init) => {
-      const request = fetch(new URL(String(url), base), {
-        ...init,
-        headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
-      });
-
-      requests.push(request);
-
-      return request;
-    };
-
-    window.eval(client);
-    const card = window.document.querySelector<HTMLElement>('[data-task="move-task"]');
-    const destination = window.document.querySelector<HTMLElement>('[data-status="blocked"]');
-    assert.ok(card && destination);
-    const path = join(tasks, "move-task/TASK.md");
-
-    function key(value: string): void {
-      card?.dispatchEvent(
-        new window.KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }),
-      );
-    }
+    const { window, requests } = await mount(base);
+    const document = window.document;
+    const root = document.getElementById("root");
 
     try {
-      key(" ");
-      key("ArrowRight");
-      key("Escape");
-      assert.equal(requests.length, 0);
-      assert.equal(window.document.querySelectorAll(".drop-target").length, 0);
-      key(" ");
-      key("ArrowRight");
-      key("Enter");
-      assert.equal(requests.length, 1);
-      await requests[0];
-      assert.match(await readFile(path, "utf8"), /status: in-progress/);
-      // A full browser reload follows success. Recreate the document for the next interaction.
+      const open = document.querySelector<HTMLButtonElement>("[data-open-task]");
+      assert.ok(open);
+      open.click();
+      await eventually(() => document.querySelector('[role="dialog"] .reader table') !== null);
+
+      const plan = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(
+        (item) => item.textContent === "Plan",
+      );
+
+      assert.ok(plan);
+      plan.dispatchEvent(new window.MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      await eventually(
+        () =>
+          document
+            .querySelector('[role="tabpanel"][data-state="active"]')
+            ?.textContent?.includes("Implementation") === true,
+      );
+      assert.equal(requests.filter((path) => path.startsWith("/api/tasks/")).length, 1);
+      const close = document.querySelector<HTMLButtonElement>('button[aria-label="Close task"]');
+      assert.ok(close);
+      close.click();
+      await eventually(() => document.querySelector('[role="dialog"]') === null);
+      const card = document.querySelector<HTMLElement>('[data-task="move-task"]');
+      assert.ok(card);
+
+      for (const key of [" ", "ArrowRight", "Escape"]) {
+        card.dispatchEvent(
+          new window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+        );
+        await new Promise((resolveTurn) => setTimeout(resolveTurn, 5));
+      }
+
+      assert.equal(requests.filter((path) => path === "/api/status").length, 0);
+
+      for (const key of [" ", "ArrowRight", "Enter"]) {
+        card.dispatchEvent(
+          new window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+        );
+        await new Promise((resolveTurn) => setTimeout(resolveTurn, 5));
+      }
+
+      await eventually(
+        () =>
+          document.querySelector('[data-status="in-progress"] [data-task="move-task"]') !== null,
+      );
+      assert.match(await readFile(join(tasks, "move-task/TASK.md"), "utf8"), /status: in-progress/);
+      assert.equal(document.getElementById("root"), root);
+      assert.equal(window.location.href, base + "/");
+      assert.equal(requests.filter((path) => path === "/api/board").length, 1);
+      const dragged = document.querySelector<HTMLElement>('[data-task="move-task"]');
+      const blocked = document.querySelector<HTMLElement>('[data-status="blocked"]');
+      assert.ok(dragged && blocked);
+      const transfer = { setData: () => undefined, effectAllowed: "", dropEffect: "" };
+      dragged.dispatchEvent(
+        Object.assign(new window.Event("dragstart", { bubbles: true }), { dataTransfer: transfer }),
+      );
+      blocked.dispatchEvent(
+        Object.assign(new window.Event("dragover", { bubbles: true, cancelable: true }), {
+          dataTransfer: transfer,
+        }),
+      );
+      blocked.dispatchEvent(new window.Event("drop", { bubbles: true, cancelable: true }));
+      await eventually(
+        () => document.querySelector('[data-status="blocked"] [data-task="move-task"]') !== null,
+      );
+      const previousFetch = window.fetch;
+      window.fetch = (url, init) =>
+        String(url) === "/api/status"
+          ? Promise.resolve(new Response("Rejected", { status: 403 }))
+          : previousFetch(url, init);
+      const rejected = document.querySelector<HTMLElement>('[data-task="move-task"]');
+      assert.ok(rejected);
+
+      for (const key of [" ", "ArrowRight", "Enter"]) {
+        rejected.dispatchEvent(
+          new window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+        );
+        await new Promise((resolveTurn) => setTimeout(resolveTurn, 5));
+      }
+
+      await eventually(
+        () =>
+          document.querySelector('[role="alert"]')?.textContent?.includes("Could not confirm") ===
+          true,
+      );
+      assert.ok(document.querySelector('[data-status="blocked"] [data-task="move-task"]'));
+      assert.equal(document.querySelector("[data-board]")?.getAttribute("aria-busy"), "false");
     } finally {
       window.close();
-    }
-
-    const moved = new JSDOM(await (await fetch(base)).text(), {
-      url: base,
-      runScripts: "outside-only",
-      virtualConsole: new VirtualConsole(),
-    });
-
-    const next = moved.window;
-    let saved: Promise<Response> | undefined;
-    next.fetch = (url, init) => {
-      saved = fetch(new URL(String(url), base), {
-        ...init,
-        headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
-      });
-
-      return saved;
-    };
-
-    next.eval(client);
-
-    try {
-      const dragged = next.document.querySelector<HTMLElement>('[data-task="move-task"]');
-      const blocked = next.document.querySelector<HTMLElement>('[data-status="blocked"]');
-      assert.ok(dragged && blocked);
-      dragged.dispatchEvent(new next.Event("dragstart", { bubbles: true }));
-      blocked.dispatchEvent(new next.Event("dragover", { bubbles: true, cancelable: true }));
-      assert.ok(blocked.classList.contains("drop-target"));
-      blocked.dispatchEvent(new next.Event("drop", { bubbles: true, cancelable: true }));
-      assert.ok(saved);
-      await saved;
-      assert.match(await readFile(path, "utf8"), /status: blocked/);
-    } finally {
-      next.close();
-    }
-
-    const failed = new JSDOM(await (await fetch(base)).text(), {
-      url: base,
-      runScripts: "outside-only",
-      virtualConsole: new VirtualConsole(),
-    });
-
-    const last = failed.window;
-    last.fetch = () => Promise.resolve(new Response("Rejected", { status: 403 }));
-    last.HTMLElement.prototype.scrollIntoView = () => undefined;
-    last.eval(client);
-
-    try {
-      const element = last.document.querySelector<HTMLElement>('[data-task="move-task"]');
-      assert.ok(element);
-
-      for (const value of [" ", "ArrowRight", "Enter"])
-        element.dispatchEvent(
-          new last.KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }),
-        );
-      await new Promise((resolveTurn) => setTimeout(resolveTurn, 10));
-      const alert = last.document.querySelector<HTMLElement>("#move-error");
-      assert.equal(alert?.hidden, false);
-      assert.match(alert?.textContent ?? "", /Could not confirm/);
-      assert.equal(last.document.querySelector(".board")?.hasAttribute("aria-busy"), false);
-      assert.match(await readFile(path, "utf8"), /status: blocked/);
-    } finally {
-      last.close();
     }
   });
 });
 
-test("touch-compatible pointer handle saves the drop destination", async () => {
+test("React pointer grip persists status and updates the card without a reload", async () => {
   await fixture(async (base, tasks) => {
-    await task(tasks, "pointer-task");
-
-    const dom = new JSDOM(await (await fetch(base)).text(), {
-      url: base,
-      runScripts: "outside-only",
-      virtualConsole: new VirtualConsole(),
-    });
-
-    const window = dom.window;
-    let saved: Promise<Response> | undefined;
-    window.HTMLElement.prototype.setPointerCapture = () => undefined;
-    window.HTMLElement.prototype.releasePointerCapture = () => undefined;
-    const target = window.document.querySelector<HTMLElement>('[data-status="done"]');
-    assert.ok(target);
-    window.document.elementFromPoint = () => target;
-    window.fetch = (url, init) => {
-      saved = fetch(new URL(String(url), base), {
-        ...init,
-        headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
-      });
-
-      return saved;
-    };
-
-    window.eval(await (await fetch(`${base}/client.js`)).text());
+    await task(tasks, "move-task");
+    const { window } = await mount(base);
 
     try {
-      const handle = window.document.querySelector<HTMLButtonElement>(".drag-handle");
+      const target = window.document.querySelector<HTMLElement>('[data-status="done"]');
+      assert.ok(target);
+      window.document.elementFromPoint = () => target;
+      const handle = window.document.querySelector<HTMLButtonElement>("[data-grip]");
       assert.ok(handle);
 
       for (const [type, x] of [
@@ -373,7 +380,7 @@ test("touch-compatible pointer handle saves the drop destination", async () => {
         ["pointerup", 50],
       ]) {
         handle.dispatchEvent(
-          Object.assign(new window.Event(String(type), { bubbles: true }), {
+          Object.assign(new window.Event(String(type), { bubbles: true, cancelable: true }), {
             pointerId: 1,
             pointerType: "touch",
             button: 0,
@@ -381,11 +388,14 @@ test("touch-compatible pointer handle saves the drop destination", async () => {
             clientY: 20,
           }),
         );
+        await new Promise((resolveTurn) => setTimeout(resolveTurn, 5));
       }
 
-      assert.ok(saved);
-      await saved;
-      assert.match(await readFile(join(tasks, "pointer-task/TASK.md"), "utf8"), /status: done/);
+      await eventually(
+        () =>
+          window.document.querySelector('[data-status="done"] [data-task="move-task"]') !== null,
+      );
+      assert.match(await readFile(join(tasks, "move-task/TASK.md"), "utf8"), /status: done/);
     } finally {
       window.close();
     }

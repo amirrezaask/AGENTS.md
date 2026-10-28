@@ -36,11 +36,14 @@ verification runs regression, acceptance, then quality checks. Debriefs live in
 `docs/reports/`; verified current behavior lives in `docs/specs/`.
 
 The optional board groups cards into Ready, In progress, Blocked, and Done.
-Cards open a modal with rendered Brief and Plan tabs. Drag-and-drop or keyboard moves update
+The single-file React app in `index.html` uses adapted shadcn components and
+Tailwind. Cards open a modal with rendered Brief and Plan tabs. Drag-and-drop or keyboard moves update
 `TASK.md`; they never launch sessions or prove that work is complete.
 The [board installation instructions](skills/factory/references/tasks.md) copy
-`server.ts` to the consuming project's `docs/tasks/`, add dependencies to that
-project's package manifest, and run it on localhost. No database is needed.
+`server.ts`, `index.html`, and fonts to the consuming project's `docs/tasks/`, add dependencies to that
+project's package manifest, and run it on localhost. The server prepares local
+React/Tailwind assets at startup; no separate build command or database is needed.
+Card moves, modal opening, and tab changes update React state without navigation.
 Historical briefs and plans are not automatically moved.
 
 ## Install

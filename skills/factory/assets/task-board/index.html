@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project tasks</title>
+  <link rel="stylesheet" href="/app.css" />
+  <script src="/app.js" defer></script>
+  <style type="text/tailwindcss">
+    @import "tailwindcss" source(none);
+    @font-face { font-family: "Anthropic Serif"; src: url("/fonts/anthropic-serif.woff2") format("woff2"); font-display: swap; }
+    @font-face { font-family: "Anthropic Sans"; src: url("/fonts/anthropic-sans.woff2") format("woff2"); font-display: swap; }
+    :root { --background: #faf9f5; --foreground: #141413; --card: #fff; --muted: #f0eee6; --muted-foreground: #5e5d59; --border: #e8e6dc; --primary: #141413; --primary-foreground: #faf9f5; --accent: #f0eee6; --accent-foreground: #141413; --ring: #d97757; --clay: #9b4a32; --ease: cubic-bezier(.165,.84,.44,1); }
+    @theme inline { --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-border: var(--border); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-ring: var(--ring); --color-clay: var(--clay); --font-sans: "Anthropic Sans", system-ui, sans-serif; --font-serif: "Anthropic Serif", Georgia, serif; }
+    body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+    ::selection { background: #ecd5c8; }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+    .reader { overflow-wrap: anywhere; line-height: 1.75; }
+    .reader > * { max-width: 75ch; }
+    .reader h1, .reader h2, .reader h3 { font-family: var(--font-serif); font-weight: 400; line-height: 1.25; margin: 1.4em 0 .6em; }
+    .reader h1 { font-size: 1.8rem; } .reader h2 { font-size: 1.5rem; } .reader h3 { font-size: 1.25rem; }
+    .reader p, .reader ul, .reader ol, .reader pre, .reader table { margin: 1em 0; }
+    .reader ul { list-style: disc; padding-left: 1.5em; } .reader ol { list-style: decimal; padding-left: 1.5em; }
+    .reader a { color: var(--clay); text-decoration: underline; text-underline-offset: .2em; }
+    .reader pre { padding: 1rem; background: var(--muted); border-radius: .5rem; overflow: auto; }
+    .reader table { border-collapse: collapse; display: block; overflow: auto; } .reader th, .reader td { border: 1px solid var(--border); padding: .5rem .75rem; text-align: left; }
+    .reader blockquote { border-left: 2px solid var(--border); padding-left: 1rem; color: var(--muted-foreground); margin: 1em 0; }
+    .dialog-overlay[data-state=open] { animation: overlay-in 160ms var(--ease); }
+    .dialog-content[data-state=open] { animation: dialog-in 180ms var(--ease); }
+    @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes dialog-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+<div id="root"><p role="status" style="padding:40px">Loading project tasks…</p></div>
+<noscript>This task board requires JavaScript.</noscript>
+<script type="text/tsx">
+import * as React from "react";
+import { createRoot } from "react-dom/client";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { GripVertical, X } from "lucide-react";
+import { Schema } from "effect";
+
+// shadcn/ui component source, adapted inline for this single-file UI.
+// Source: https://github.com/shadcn-ui/ui (MIT); full notice below.
+function cn(...values: ClassValue[]) {
+  return twMerge(clsx(values));
+}
+
+const buttonVariants = cva(
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        outline: "border border-border bg-background hover:bg-accent",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+      },
+      size: { default: "h-9 px-4", icon: "size-9" },
+    },
+    defaultVariants: { variant: "default", size: "default" },
+  },
+);
+
+function Button({
+  className,
+  variant,
+  size,
+  asChild = false,
+  ...props
+}: React.ComponentProps<"button"> & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
+  const Component = asChild ? Slot : "button";
+
+  return (
+    <Component
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size }), className)}
+      {...props}
+    />
+  );
+}
+
+function Card({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card"
+      className={cn("rounded-xl border border-border bg-card text-foreground", className)}
+      {...props}
+    />
+  );
+}
+
+function DialogContent({
+  children,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  return (
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-40 bg-foreground/35" />
+      <DialogPrimitive.Content
+        data-slot="dialog-content"
+        className="dialog-content fixed top-1/2 left-1/2 z-50 flex h-[90dvh] w-[80vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl focus:outline-none"
+        {...props}
+      >
+        {children}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  );
+}
+
+function TabsList(props: React.ComponentProps<typeof TabsPrimitive.List>) {
+  return (
+    <TabsPrimitive.List
+      data-slot="tabs-list"
+      className="flex shrink-0 gap-6 border-b border-border px-6"
+      {...props}
+    />
+  );
+}
+
+function TabsTrigger(props: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+  return (
+    <TabsPrimitive.Trigger
+      data-slot="tabs-trigger"
+      className="border-b-2 border-transparent py-4 text-sm text-muted-foreground transition-colors data-[state=active]:border-clay data-[state=active]:font-medium data-[state=active]:text-clay"
+      {...props}
+    />
+  );
+}
+
+function Alert({ children }: { children: React.ReactNode }) {
+  return (
+    <div role="alert" className="mb-5 rounded-lg border border-border bg-muted px-4 py-3 text-sm">
+      {children}
+    </div>
+  );
+}
+
+const statusSchema = Schema.Literal("ready", "in-progress", "blocked", "done");
+
+const taskSchema = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  status: statusSchema,
+  created: Schema.String,
+  updated: Schema.String,
+});
+
+const boardSchema = Schema.Struct({
+  project: Schema.String,
+  token: Schema.String,
+  tasks: Schema.Array(taskSchema),
+  errors: Schema.Array(Schema.String),
+});
+
+const documentsSchema = Schema.Struct({ brief: Schema.String, plan: Schema.String });
+
+type Task = typeof taskSchema.Type;
+
+type Board = typeof boardSchema.Type;
+
+type Documents = typeof documentsSchema.Type;
+
+type Status = typeof statusSchema.Type;
+
+const columns: { id: Status; label: string }[] = [
+  { id: "ready", label: "Ready" },
+  { id: "in-progress", label: "In progress" },
+  { id: "blocked", label: "Blocked" },
+  { id: "done", label: "Done" },
+];
+
+type Picked = { id: string; target: Status; keyboard: boolean };
+
+type Gesture = {
+  id: string;
+  pointer: number;
+  x: number;
+  y: number;
+  moved: boolean;
+  target: Status | null;
+};
+
+async function request(path: string, init?: RequestInit) {
+  const response = await fetch(path, init);
+
+  if (!response.ok) throw new Error("Request failed");
+
+  return response.json();
+}
+
+function TaskCard({
+  task,
+  picked,
+  pending,
+  onOpen,
+  onPick,
+  onTarget,
+  onMove,
+  onCancel,
+  boardRef,
+}: {
+  task: Task;
+  picked: Picked | null;
+  pending: boolean;
+  onOpen: (task: Task) => void;
+  onPick: (value: Picked) => void;
+  onTarget: (status: Status) => void;
+  onMove: (id: string, status: Status) => void;
+  onCancel: () => void;
+  boardRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const gesture = React.useRef<Gesture | null>(null);
+  const suppressClick = React.useRef(0);
+
+  function key(event: React.KeyboardEvent) {
+    if (
+      event.target !== event.currentTarget &&
+      !(event.target instanceof HTMLButtonElement && event.target.dataset.grip)
+    )
+      return;
+
+    if (!picked && (event.key === " " || event.key === "Enter")) {
+      event.preventDefault();
+      onPick({ id: task.id, target: task.status, keyboard: true });
+    } else if (picked?.id === task.id && picked.keyboard) {
+      const index = columns.findIndex((column) => column.id === picked.target);
+
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+
+        const next =
+          columns[Math.max(0, Math.min(3, index + (event.key === "ArrowRight" ? 1 : -1)))];
+
+        onTarget(next.id);
+        boardRef.current
+          ?.querySelector(`[data-status="${next.id}"]`)
+          ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      } else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onMove(task.id, picked.target);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        onCancel();
+      }
+    }
+  }
+
+  return (
+    <Card
+      tabIndex={0}
+      draggable={!pending}
+      data-task={task.id}
+      aria-describedby="move-instructions"
+      aria-disabled={pending}
+      className={cn(
+        "relative mb-3 cursor-grab p-[18px] transition-colors hover:border-muted-foreground/40",
+        picked?.id === task.id && "opacity-45",
+        pending && "pointer-events-none opacity-60",
+      )}
+      onKeyDown={key}
+      onDragStart={(event) => {
+        if (gesture.current) {
+          event.preventDefault();
+
+          return;
+        }
+
+        event.dataTransfer.setData("text/plain", task.id);
+        event.dataTransfer.effectAllowed = "move";
+        onPick({ id: task.id, target: task.status, keyboard: false });
+      }}
+      onDragEnd={onCancel}
+    >
+      <Button
+        data-grip="true"
+        variant="ghost"
+        size="icon"
+        className="absolute top-2.5 right-2 touch-none cursor-grab text-muted-foreground active:cursor-grabbing"
+        aria-label={`Move ${task.title}`}
+        aria-describedby="move-instructions"
+        disabled={pending}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          event.currentTarget.focus();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          gesture.current = {
+            id: task.id,
+            pointer: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            moved: false,
+            target: task.status,
+          };
+        }}
+        onPointerMove={(event) => {
+          const current = gesture.current;
+
+          if (!current || current.pointer !== event.pointerId) return;
+
+          if (
+            !current.moved &&
+            Math.hypot(event.clientX - current.x, event.clientY - current.y) > 6
+          ) {
+            current.moved = true;
+            onPick({ id: task.id, target: task.status, keyboard: false });
+          }
+
+          if (!current.moved) return;
+
+          const target = document
+            .elementFromPoint(event.clientX, event.clientY)
+            ?.closest<HTMLElement>("[data-status]")?.dataset.status;
+
+          current.target = null;
+
+          if (target) {
+            const status = Schema.decodeUnknownSync(statusSchema)(target);
+            current.target = status;
+            onTarget(status);
+          }
+
+          const board = boardRef.current;
+
+          if (board) {
+            const bounds = board.getBoundingClientRect();
+
+            if (event.clientX < bounds.left + 32) board.scrollLeft -= 16;
+
+            if (event.clientX > bounds.right - 32) board.scrollLeft += 16;
+          }
+        }}
+        onPointerUp={(event) => {
+          const current = gesture.current;
+
+          if (!current || current.pointer !== event.pointerId) return;
+          gesture.current = null;
+          event.currentTarget.releasePointerCapture(event.pointerId);
+
+          if (current.moved) {
+            suppressClick.current = performance.now() + 200;
+
+            if (current.target) onMove(task.id, current.target);
+            else onCancel();
+          } else onPick({ id: task.id, target: task.status, keyboard: true });
+        }}
+        onPointerCancel={() => {
+          gesture.current = null;
+          onCancel();
+        }}
+      >
+        <GripVertical data-icon="inline-start" />
+      </Button>
+      <button
+        type="button"
+        data-open-task={task.id}
+        className="block w-full cursor-pointer pr-8 text-left text-base leading-snug font-semibold hover:underline"
+        onClick={() => {
+          if (performance.now() >= suppressClick.current) onOpen(task);
+        }}
+      >
+        {task.title}
+      </button>
+      <p className="mt-3 text-xs text-muted-foreground">Updated {task.updated}</p>
+    </Card>
+  );
+}
+
+function TaskReader({ task, onClose }: { task: Task | null; onClose: () => void }) {
+  const [tab, setTab] = React.useState("brief");
+  const [documents, setDocuments] = React.useState<Documents | null>(null);
+  const [error, setError] = React.useState(false);
+  const closeRef = React.useRef<HTMLButtonElement>(null);
+  const opener = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (!task) return;
+    opener.current = task.id;
+    const controller = new AbortController();
+    setTab("brief");
+    setDocuments(null);
+    setError(false);
+    request(`/api/tasks/${task.id}`, { signal: controller.signal })
+      .then((value) => {
+        if (!controller.signal.aborted)
+          setDocuments(Schema.decodeUnknownSync(documentsSchema)(value));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError(true);
+      });
+
+    return () => controller.abort();
+  }, [task?.id]);
+
+  return (
+    <DialogPrimitive.Root
+      open={Boolean(task)}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          closeRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          document
+            .querySelector<HTMLButtonElement>(`[data-open-task="${opener.current}"]`)
+            ?.focus();
+        }}
+      >
+        <header className="flex shrink-0 items-center justify-between gap-6 border-b border-border px-6 py-5">
+          <DialogPrimitive.Title className="font-serif text-[26px] font-normal leading-tight">
+            {task?.title}
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Close asChild>
+            <Button ref={closeRef} variant="outline" size="icon" aria-label="Close task">
+              <X data-icon="inline-start" />
+            </Button>
+          </DialogPrimitive.Close>
+        </header>
+        <DialogPrimitive.Description className="sr-only">
+          Task brief and implementation plan.
+        </DialogPrimitive.Description>
+        <TabsPrimitive.Root
+          value={tab}
+          onValueChange={setTab}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <TabsList aria-label="Task documents">
+            <TabsTrigger value="brief">Brief</TabsTrigger>
+            <TabsTrigger value="plan">Plan</TabsTrigger>
+          </TabsList>
+          {error ? (
+            <div className="p-6">
+              <Alert>Could not load task documents. Close this task and try again.</Alert>
+            </div>
+          ) : !documents ? (
+            <p role="status" className="p-6 text-muted-foreground">
+              Loading documents…
+            </p>
+          ) : (
+            <>
+              <TabsPrimitive.Content value="brief" className="min-h-0 flex-1 overflow-auto">
+                <article
+                  className="reader px-6 pb-8"
+                  dangerouslySetInnerHTML={{ __html: documents.brief }}
+                />
+              </TabsPrimitive.Content>
+              <TabsPrimitive.Content value="plan" className="min-h-0 flex-1 overflow-auto">
+                <article
+                  className="reader px-6 pb-8"
+                  dangerouslySetInnerHTML={{ __html: documents.plan }}
+                />
+              </TabsPrimitive.Content>
+            </>
+          )}
+        </TabsPrimitive.Root>
+      </DialogContent>
+    </DialogPrimitive.Root>
+  );
+}
+
+function App() {
+  const [board, setBoard] = React.useState<Board | null>(null);
+  const [error, setError] = React.useState("");
+  const [selected, setSelected] = React.useState<Task | null>(null);
+  const [picked, setPicked] = React.useState<Picked | null>(null);
+  const [pending, setPending] = React.useState<string | null>(null);
+  const [announcement, setAnnouncement] = React.useState("");
+  const boardRef = React.useRef<HTMLDivElement>(null);
+  const saving = React.useRef(false);
+  const pickedRef = React.useRef<Picked | null>(null);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    request("/api/board", { signal: controller.signal })
+      .then((value) => {
+        if (!controller.signal.aborted) {
+          const data = Schema.decodeUnknownSync(boardSchema)(value);
+          setBoard(data);
+          document.title = data.project + " — Tasks";
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError("Could not load the board. Reload to try again.");
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  function pick(value: Picked) {
+    if (saving.current) return;
+    pickedRef.current = value;
+    setPicked(value);
+    setError("");
+    setAnnouncement(
+      "Use left and right arrows to choose a column, Enter to save, Escape to cancel.",
+    );
+  }
+
+  function target(status: Status) {
+    const current = pickedRef.current;
+
+    if (!current) return;
+    const next = { ...current, target: status };
+    pickedRef.current = next;
+    setPicked(next);
+    setAnnouncement("Destination: " + columns.find((column) => column.id === status)?.label);
+  }
+
+  function cancel() {
+    pickedRef.current = null;
+    setPicked(null);
+  }
+
+  async function move(id: string, status: Status) {
+    const task = board?.tasks.find((task) => task.id === id);
+    cancel();
+
+    if (!board || !task || saving.current || task.status === status) return;
+    saving.current = true;
+    setPending(id);
+    setError("");
+    setAnnouncement("Saving task status…");
+
+    try {
+      const updated = Schema.decodeUnknownSync(taskSchema)(
+        await request("/api/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ token: board.token, task: id, status }),
+        }),
+      );
+
+      setBoard((current) =>
+        current
+          ? { ...current, tasks: current.tasks.map((item) => (item.id === id ? updated : item)) }
+          : current,
+      );
+      setAnnouncement(
+        "Task moved to " + columns.find((column) => column.id === status)?.label + ".",
+      );
+    } catch {
+      setError(
+        "Could not confirm the move. Your board is unchanged. Reload to check the saved status, then try again.",
+      );
+      setAnnouncement("Move failed.");
+    } finally {
+      saving.current = false;
+      setPending(null);
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>(`[data-task="${id}"]`)?.focus(),
+      );
+    }
+  }
+
+  return (
+    <main className="px-5 py-8 md:px-11 md:py-10">
+      <h1 className="mb-9 font-serif text-[clamp(32px,4vw,46px)] font-normal leading-tight tracking-tight">
+        {board?.project ?? "Project tasks"}
+      </h1>
+      {error ? <Alert>{error}</Alert> : null}
+      {board?.errors.map((message) => (
+        <Alert key={message}>{message}</Alert>
+      ))}
+      <p id="move-instructions" className="sr-only">
+        Drag cards between columns. On a card or move grip, press Space, use left/right arrows, and
+        Enter to save or Escape to cancel.
+      </p>
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+      {!board && !error ? (
+        <p role="status" className="text-muted-foreground">
+          Loading tasks…
+        </p>
+      ) : null}
+      <div
+        ref={boardRef}
+        data-board="true"
+        className="grid grid-cols-[repeat(4,minmax(240px,1fr))] items-start gap-5 overflow-x-auto p-2 pb-6"
+        aria-busy={Boolean(pending)}
+      >
+        {columns.map((column) => {
+          const tasks = board?.tasks.filter((task) => task.status === column.id) ?? [];
+
+          return (
+            <section
+              key={column.id}
+              data-status={column.id}
+              aria-label={column.label}
+              className={cn(
+                "min-h-60 rounded-xl transition-colors",
+                picked?.target === column.id &&
+                  "bg-muted outline-2 outline-offset-4 outline-dashed outline-ring",
+              )}
+              onDragOver={(event) => {
+                if (pickedRef.current && !saving.current) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  target(column.id);
+                }
+              }}
+              onDrop={(event) => {
+                const current = pickedRef.current;
+
+                if (!current) return;
+                event.preventDefault();
+                void move(current.id, column.id);
+              }}
+            >
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                {column.label}
+                <span className="font-normal tabular-nums">{tasks.length}</span>
+              </h2>
+              {tasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  picked={picked}
+                  pending={Boolean(pending)}
+                  onOpen={setSelected}
+                  onPick={pick}
+                  onTarget={target}
+                  onMove={(id, status) => void move(id, status)}
+                  onCancel={cancel}
+                  boardRef={boardRef}
+                />
+              ))}
+              {board && !tasks.length ? (
+                <p className="border-t border-dashed border-border py-5 text-sm text-muted-foreground">
+                  No tasks here.
+                </p>
+              ) : null}
+            </section>
+          );
+        })}
+      </div>
+      <TaskReader task={selected} onClose={() => setSelected(null)} />
+    </main>
+  );
+}
+
+const root = document.getElementById("root");
+
+if (root) createRoot(root).render(<App />);
+</script>
+<!--
+shadcn/ui adapted component source: MIT License, Copyright (c) 2023 shadcn.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+</body>
+</html>
