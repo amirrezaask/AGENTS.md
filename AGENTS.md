@@ -1,29 +1,28 @@
 # AGENTS
-
 Address the user as ADMIN. GLOBAL means `~/.agents/`.
-
 
 ## Directory structure
 Never add a top-level directory without asking. Beyond the stack's own source layout, every project has:
 
-- `docs/briefs`: Documents that communicate intent and knowledge from agent to humans.
+- `docs/briefs`: Documents that communicate intent and knowledge from agent to humans, named with `$date-$title.md`.
 - `docs/plans/`: plans and proposals, `$date-$title.md` (`YYYY-MM-DD`); git keeps history.
 - `docs/reports/`: every benchmark, test and verification result, one dir or `.md` per run, `$date-$title`. Track only Markdown summaries; raw output (json, png, logs, traces) is gitignored. Playwright and playthrough output is written here by the config.
 - `docs/specs/`: written specifications of implemented software behavior, one `<area-name>.spec.md` file per area; keep each in sync with the code.
 - `tools/`: all scripts, build/install tooling, benchmark drivers, checks, generators and their fixtures. Nothing executable at the repo root or in `scripts/`.
 - `.work/`: gitignored scratch space.
 
-
 ## Rules
-
 ### Version Control
 **Single branch, no worktrees**, unless ADMIN says otherwise.
+**Each agent round should conclude with a commit.**
+**Commit messages should reference the brief and plan document of requested change(in absence of said documents, commit message should just echo user's request)**
 
 ### Language and Stack
 **TypeScript first.** All scripts, tools and app code are TypeScript. Add no other language without ADMIN's explicit approval for that change. Existing non-TypeScript code stays until ported or approved.
   - **Effect.ts** is a mandatory dependency in every TypeScript project, client and server.
   - **Oxlint + Oxfmt** are initialized and run via `npm run lint`. Install the [anti-slop](https://github.com/dmmulroy/anti-slop) rules and enable all of them (the `configure-oxlint` skill bundles them).
   - **One config per test runner:** `playwright.config.ts` (`PW_SUITE=<name>`) and `vitest.config.ts` (`VITEST_SUITE=<name>`). Add a suite rather than a new config file.
+  - When there is an obvious performance gain by using a more low-level language like Rust, prompt the user whether they want a rewrite or atleast notify them for they can think about it.
 
 
 ### Agentic
@@ -33,7 +32,6 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 
 ### Cleanliness
 - **No leftover files.** Add no Markdown or JSON that nothing will read again (progress notes, handoffs, summaries, audit dumps, receipts). Delete your own scratch files, `.work` contents and stray processes when the request is done.
-
 
 ### Briefing
 For any request from user whether it's a change, adding a feature or fixing a bug, ask once whether ADMIN wants a written brief. If yes, inspect the relevant code, then write it to `docs/briefs/$date-$title.md` using `docs/briefs/BRIEF_TEMPLATE.md`, falling back to GLOBAL `BRIEF_TEMPLATE.md`.It's really important to note that when writing the brief we should make it concise, summarized and simple, verbosity in brief kills the whole purpose of fast communication of intent and knowledge with ADMIN.
@@ -47,8 +45,8 @@ For any request from user whether it's a change, adding a feature or fixing a bu
 
 ## Plans
 Plans are handoff documents agents pass between each other to carry out contextual information from one session to another. A basic example would be a consulting session with a high end expensive model and creating plan file, handing it to a simpler cheaper agent model.
-- Plans are designed as Agent-to-Agent documents so they should be expressive, percise, contextful document that agents can follow to implement a requested change or fix.
-
+**Plans are designed as Agent-to-Agent documents so they should be expressive, percise, contextful document that agents can follow to implement a requested change or fix.**
+**Use GLOBAL `PLAN_TEMPLATE.md`**
 
 ## Debrief
 - Debriefs record the outcome, work, decisions, and validation of a task.
