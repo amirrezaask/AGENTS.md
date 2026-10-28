@@ -38,6 +38,7 @@ Node.js 24.22.1 on macOS; global work started from master `00a15f5`.
 | V4 | Independent merge review | Preserve specialized knowledge and scoped routing | All 8 reference links resolve; no actionable findings | Passed |
 | V5 | GameBox transfer comparison | No lost project instructions | All 3 moved skills byte-identical; AGENTS.md task links resolve | Passed |
 | V6 | `git diff --check` | Clean patch | Passed | Passed |
+| V7 | Real install, link inspection, second dry-run | Current global links and retired-link cleanup | 12 current links verified; 28 retired links absent; second dry-run proposed no changes | Passed |
 
 ## Findings
 
@@ -49,8 +50,9 @@ Node.js 24.22.1 on macOS; global work started from master `00a15f5`.
 
 ## Follow-up
 
-Refresh installed links after integrating master and verify the resulting
-three-skill installation. Record that result below before completion.
+None. Global changes are integrated on master; GameBox's move is committed as
+`a8c7f972`. Its master advanced during this task, so the documentation-only commit
+was cherry-picked while preserving concurrent application edits.
 
 ## Artifacts
 
