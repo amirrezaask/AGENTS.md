@@ -4,8 +4,8 @@ Address the user as ADMIN. GLOBAL means `~/.agents/`.
 ## Directory structure
 Never add a top-level directory without asking. Beyond the stack's own source layout, every project has:
 
-- `docs/briefs`: Documents that communicate intent and knowledge from agent to humans, named with `$date-$title.md`.
-- `docs/plans/`: plans and proposals, `$date-$title.md` (`YYYY-MM-DD`); git keeps history.
+- `docs/tasks/<task-name>/`: Factory tasks with `TASK.md` metadata, approved `BRIEF.md`, and mutable `PLAN.md`. Historical briefs and plans stay in place unless migration is requested.
+- `docs/tasks/server.ts`: the optional Factory board server; this is the specific exception to the tooling location rule.
 - `docs/reports/`: every benchmark, test and verification result, one dir or `.md` per run, `$date-$title`. Track only Markdown summaries; raw output (json, png, logs, traces) is gitignored. Playwright and playthrough output is written here by the config.
 - `docs/specs/`: written specifications of implemented software behavior, one `<area-name>.spec.md` file per area; keep each in sync with the code.
 - `tools/`: all scripts, build/install tooling, benchmark drivers, checks, generators and their fixtures. Nothing executable at the repo root or in `scripts/`.
@@ -39,10 +39,10 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 
 ## Documentation workflow
 
-At the start of every task, read both skills and follow their instructions:
-
-- [Communication](skills/communication/SKILL.md): briefs, plans, and debriefs.
-- [Specification](skills/specification/SKILL.md): implemented behavior and area specifications.
+For software development work, read [Factory](skills/factory/SKILL.md) and follow
+its clarification, approved brief, plan, task, verification, debrief, and area
+specification workflow. Factory is the single owner of these rules. Research
+discussions do not authorize implementation.
 
 GLOBAL template filenames remain available through installer-managed symlinks;
-the canonical templates live inside these skills.
+the canonical templates live inside Factory.

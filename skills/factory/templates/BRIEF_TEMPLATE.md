@@ -14,6 +14,13 @@ author: "<agent> <llm model>"
 - **R1:** Given <context>, when <action>, then <observable outcome>.
 - **R2:** <Verifiable constraint.>
 
+## Scope and Constraints
+
+- **Non-goals:** <Explicitly excluded work.>
+- **Preserved behavior:** <Links to existing area specification requirements.>
+- **Constraints:** <Compatibility, stack, or operational constraints.>
+- **Open questions:** <Consequential unresolved decisions; resolve before approval.>
+
 ## Validation Gates
 Verification gates should reference requirements directly and ALL requirements should be present in this table at least once.
 | ID | Covers | Command or procedure | Pass condition |
@@ -22,7 +29,8 @@ Verification gates should reference requirements directly and ALL requirements s
 
 <!-- After approval, freeze all existing content, including metadata and tables.
 Append each update at EOF after a blank line, with its date and reason.
-Use the entry format below. Record approval itself as an entry.
+Use the entry format below. Record approval itself as an entry, including ADMIN and the approval date.
+Do not amend requirements through appended notes without explicit authorization.
 Mark Complete only when requirements are satisfied and required validation passes. -->
 
 ### <YYYY-MM-DD HH:mm UTC offset> — <Reason for update>

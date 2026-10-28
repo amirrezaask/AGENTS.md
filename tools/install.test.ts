@@ -21,9 +21,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const installer = join(root, "tools", "install.ts");
 
 const skill = readdirSync(join(root, "skills")).find(
-  (name) =>
-    !["communication", "specification"].includes(name) &&
-    existsSync(join(root, "skills", name, "SKILL.md")),
+  (name) => !["factory"].includes(name) && existsSync(join(root, "skills", name, "SKILL.md")),
 );
 
 assert.ok(skill);
@@ -105,7 +103,7 @@ test("selected install includes global workflow skills; foreign symlinks are pre
     assert.equal(invoke(home, skill).status, 0);
     assert.deepEqual(
       readdirSync(join(home, ".agents", "skills")).sort(),
-      [...new Set([skill, "communication", "specification"])].sort(),
+      [...new Set([skill, "factory"])].sort(),
     );
     const destination = join(home, ".codex", "skills", skill);
     rmSync(destination);
@@ -155,10 +153,10 @@ test("removes any retired old-source skill link but preserves unrelated links an
   }));
 
 const templateSources = [
-  { name: "BRIEF_TEMPLATE.md", path: "skills/communication/templates/BRIEF_TEMPLATE.md" },
-  { name: "PLAN_TEMPLATE.md", path: "skills/communication/templates/PLAN_TEMPLATE.md" },
-  { name: "DEBRIEF_TEMPLATE.md", path: "skills/communication/templates/DEBRIEF_TEMPLATE.md" },
-  { name: "SPEC_TEMPLATE.md", path: "skills/specification/templates/SPEC_TEMPLATE.md" },
+  { name: "BRIEF_TEMPLATE.md", path: "skills/factory/templates/BRIEF_TEMPLATE.md" },
+  { name: "PLAN_TEMPLATE.md", path: "skills/factory/templates/PLAN_TEMPLATE.md" },
+  { name: "DEBRIEF_TEMPLATE.md", path: "skills/factory/templates/DEBRIEF_TEMPLATE.md" },
+  { name: "SPEC_TEMPLATE.md", path: "skills/factory/templates/SPEC_TEMPLATE.md" },
 ];
 
 const globalDirectories = [".agents", ".codex", ".claude"];
@@ -236,10 +234,10 @@ test("missing template or required skill fails before any home mutation", () => 
       writeFileSync(join(fixture, "tools", "install.ts"), readFileSync(installer));
       writeFileSync(join(fixture, "AGENTS.md"), "global");
 
-      for (const name of ["communication", "specification"]) {
+      for (const name of ["factory"]) {
         mkdirSync(join(fixture, "skills", name), { recursive: true });
 
-        if (missing !== "skill" || name !== "specification")
+        if (missing !== "skill" || name !== "factory")
           writeFileSync(join(fixture, "skills", name, "SKILL.md"), "skill");
       }
 
@@ -263,3 +261,38 @@ test("missing template or required skill fails before any home mutation", () => 
       assert.deepEqual(readdirSync(home), []);
     });
 });
+
+test("Factory migrates former nested template aliases and retires both workflow skills on selected installs", () =>
+  isolated((home) => {
+    for (const directory of globalDirectories) {
+      const base = join(home, directory);
+      mkdirSync(join(base, "skills"), { recursive: true });
+
+      for (const name of ["communication", "specification"])
+        symlinkSync(join(root, "skills", name), join(base, "skills", name));
+
+      for (const { name } of templateSources) {
+        const old = name === "SPEC_TEMPLATE.md" ? "specification" : "communication";
+        symlinkSync(join(root, "skills", old, "templates", name), join(base, name));
+      }
+    }
+
+    assert.equal(invoke(home, "--dry-run", skill).status, 0);
+    assert.equal(
+      lstatSync(join(home, ".agents", "skills", "communication")).isSymbolicLink(),
+      true,
+    );
+    assert.equal(invoke(home, skill).status, 0);
+
+    for (const directory of globalDirectories) {
+      for (const name of ["communication", "specification"])
+        assert.throws(() => lstatSync(join(home, directory, "skills", name)));
+      assert.equal(
+        readlinkSync(join(home, directory, "skills", "factory")),
+        join(root, "skills", "factory"),
+      );
+
+      for (const { name, path } of templateSources)
+        assert.equal(readlinkSync(join(home, directory, name)), join(root, path));
+    }
+  }));

@@ -29,7 +29,7 @@ const skills = readdirSync(join(repo, "skills"), { withFileTypes: true })
 interface Link {
   source: string;
   destination: string;
-  previousSource?: string;
+  previousSources?: string[];
 }
 
 function present(path: string): boolean {
@@ -76,7 +76,7 @@ function main(): void {
     join(home, ".cursor", "skills-cursor"),
   ];
 
-  const requiredSkills = ["communication", "specification"];
+  const requiredSkills = ["factory"];
 
   for (const name of requiredSkills) {
     const source = join(repo, "skills", name, "SKILL.md");
@@ -90,10 +90,10 @@ function main(): void {
 
   const globalFiles = [
     { name: "AGENTS.md", path: "AGENTS.md" },
-    { name: "BRIEF_TEMPLATE.md", path: "skills/communication/templates/BRIEF_TEMPLATE.md" },
-    { name: "PLAN_TEMPLATE.md", path: "skills/communication/templates/PLAN_TEMPLATE.md" },
-    { name: "DEBRIEF_TEMPLATE.md", path: "skills/communication/templates/DEBRIEF_TEMPLATE.md" },
-    { name: "SPEC_TEMPLATE.md", path: "skills/specification/templates/SPEC_TEMPLATE.md" },
+    { name: "BRIEF_TEMPLATE.md", path: "skills/factory/templates/BRIEF_TEMPLATE.md" },
+    { name: "PLAN_TEMPLATE.md", path: "skills/factory/templates/PLAN_TEMPLATE.md" },
+    { name: "DEBRIEF_TEMPLATE.md", path: "skills/factory/templates/DEBRIEF_TEMPLATE.md" },
+    { name: "SPEC_TEMPLATE.md", path: "skills/factory/templates/SPEC_TEMPLATE.md" },
   ];
 
   for (const { path } of globalFiles) {
@@ -109,7 +109,16 @@ function main(): void {
       globalFiles.map(({ name, path }) => ({
         source: join(repo, path),
         destination: join(base, name),
-        previousSource: join(repo, name),
+        previousSources: [
+          join(repo, name),
+          join(
+            repo,
+            "skills",
+            name === "SPEC_TEMPLATE.md" ? "specification" : "communication",
+            "templates",
+            name,
+          ),
+        ],
       })),
     ),
     ...destinations.flatMap((base) =>
@@ -126,18 +135,17 @@ function main(): void {
 
   const removals: string[] = [];
 
-  if (!selected.length) {
-    for (const base of destinations) {
-      if (!present(base) || !lstatSync(base).isDirectory()) continue;
+  for (const base of destinations) {
+    if (!present(base) || !lstatSync(base).isDirectory()) continue;
 
-      for (const name of readdirSync(base)) {
-        const path = join(base, name);
+    for (const name of readdirSync(base)) {
+      if (selected.length && !["communication", "specification"].includes(name)) continue;
+      const path = join(base, name);
 
-        if (!skills.includes(name) && present(path) && lstatSync(path).isSymbolicLink()) {
-          const target = resolve(dirname(path), readlinkSync(path));
+      if (!skills.includes(name) && present(path) && lstatSync(path).isSymbolicLink()) {
+        const target = resolve(dirname(path), readlinkSync(path));
 
-          if (managed(target, join(repo, "skills", name))) removals.push(path);
-        }
+        if (managed(target, join(repo, "skills", name))) removals.push(path);
       }
     }
   }
@@ -150,14 +158,14 @@ function main(): void {
     }
   }
 
-  for (const { source, destination, previousSource } of links) {
+  for (const { source, destination, previousSources } of links) {
     if (!present(destination)) continue;
 
     if (!lstatSync(destination).isSymbolicLink())
       throw new Error(`Refusing to replace existing path: ${destination}`);
     const target = resolve(dirname(destination), readlinkSync(destination));
 
-    if (!managed(target, source) && target !== previousSource)
+    if (!managed(target, source) && !previousSources?.includes(target))
       throw new Error(`Refusing unrelated symlink: ${destination} -> ${target}`);
   }
 

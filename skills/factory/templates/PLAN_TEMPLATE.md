@@ -41,3 +41,6 @@ Cover every requirement at least once. Include commands or procedures that anoth
 - **Decisions and assumptions:** <Choices the implementing agent must preserve or verify.>
 - **Open questions:** <Unresolved questions and how they affect execution; or None.>
 - **Next action:** <First concrete step.>
+
+## Revisions
+- <Date, reason, affected work IDs, and impact; or None. Requirements in the approved brief and existing area specs remain binding.>

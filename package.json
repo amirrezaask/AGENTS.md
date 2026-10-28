@@ -5,17 +5,24 @@
   "scripts": {
     "install:agents": "node tools/install.ts",
     "check:skills": "node tools/validate-skills.ts",
-    "lint": "NODE_OPTIONS=\"--import tsx\" oxlint tools && oxfmt --check tools package.json .oxlintrc.json",
-    "test": "node --test tools/install.test.ts"
+    "lint": "NODE_OPTIONS=\"--import tsx\" oxlint tools skills/factory/assets && oxfmt --check tools skills/factory/assets package.json .oxlintrc.json",
+    "test": "node --test tools/install.test.ts tools/factory-board.test.ts",
+    "check:types": "tsc --noEmit --strict --types node --esModuleInterop --module nodenext --target es2023 --allowImportingTsExtensions tools/*.ts skills/factory/assets/task-board/server.ts"
   },
   "dependencies": {
     "effect": "3.22.4"
   },
   "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/sanitize-html": "^2.16.2",
+    "gray-matter": "^4.0.3",
+    "marked": "^17.0.6",
     "oxfmt": "0.75.0",
     "oxlint": "1.90.0",
     "oxlint-plugin-anti-slop": "https://codeload.github.com/dmmulroy/anti-slop/tar.gz/13909c9e07590f5a85d93c62712259fe14a883f7",
-    "tsx": "4.23.15"
+    "sanitize-html": "^2.18.1",
+    "tsx": "4.23.15",
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=24"
