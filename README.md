@@ -36,7 +36,7 @@ verification runs regression, acceptance, then quality checks. Debriefs live in
 `docs/reports/`; verified current behavior lives in `docs/specs/`.
 
 The optional board groups cards into Ready, In progress, Blocked, and Done.
-Cards open a modal with rendered Brief and Plan tabs. Status forms update
+Cards open a modal with rendered Brief and Plan tabs. Drag-and-drop or keyboard moves update
 `TASK.md`; they never launch sessions or prove that work is complete.
 The [board installation instructions](skills/factory/references/tasks.md) copy
 `server.ts` to the consuming project's `docs/tasks/`, add dependencies to that

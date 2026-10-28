@@ -47,7 +47,7 @@ existing package scripts and dependency versions that are compatible.
 The server uses the task directory beside its own file, independent of cwd.
 It needs no database, build pipeline, client framework, or external service.
 It displays status columns and cards; clicking a card opens a modal with rendered
-Brief and Plan tabs. The status form moves the card by updating `TASK.md` only.
+Brief and Plan tabs. Drag a card between columns to update `TASK.md` only. The grip supports pointer/touch dragging. For keyboard moves, focus a card or its grip, press Space, use Left/Right, then Enter to save or Escape to cancel. Failed moves display recovery guidance; card titles still open documents.
 Reload the browser to pick up edits made by agents; automatic live updates are not part
 of this version. The board does not edit briefs/plans, create/delete tasks,
 dispatch agents, or integrate with Codex/Claude sessions.
@@ -56,6 +56,7 @@ Invalid task metadata is reported visibly without hiding valid tasks. Missing
 documents show an explicit unavailable state. Markdown is sanitized before
 rendering. Paths stay within the task directory; symlinked task directories and
 documents are rejected. Writes require the local form token and expected origin.
+The task modal occupies 80% of viewport width and 90% of viewport height, with scrollable document content.
 The board is local-only and has no remote-access deployment mode.
 
 ## Project name and typography

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { JSDOM, VirtualConsole } from "jsdom";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
@@ -129,6 +130,7 @@ test("board renders tasks and both Markdown documents, moves every status, and p
     const board = await fetch(base);
     assert.equal(board.status, 200);
     assert.match(board.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
+    assert.match(board.headers.get("content-security-policy") ?? "", /connect-src 'self'/);
     const html = await board.text();
     assert.match(html, /Recover account access/);
     assert.match(html, /<h1 class="project-title">Project &lt;Atlas&gt;<\/h1>/);
@@ -209,5 +211,183 @@ test("invalid writes, origins, metadata, and symlink paths cannot overwrite task
     await symlink(join(outside, "TASK.md"), join(tasks, "valid-task/TASK.md"));
     assert.equal((await move(base, token, "valid-task", "done")).status, 400);
     assert.equal(await readFile(join(outside, "TASK.md"), "utf8"), original);
+  });
+});
+
+test("card keyboard and drag events persist status, cancel safely, and report rejected moves", async () => {
+  await fixture(async (base, tasks) => {
+    await task(tasks, "move-task");
+    const html = await (await fetch(base)).text();
+    assert.doesNotMatch(html, /<select|<button type="submit">Move/);
+    const client = await (await fetch(`${base}/client.js`)).text();
+
+    const dom = new JSDOM(html, {
+      url: base,
+      runScripts: "outside-only",
+      virtualConsole: new VirtualConsole(),
+    });
+
+    const window = dom.window;
+    const requests: Promise<Response>[] = [];
+    window.HTMLElement.prototype.scrollIntoView = () => undefined;
+    window.fetch = (url, init) => {
+      const request = fetch(new URL(String(url), base), {
+        ...init,
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
+      });
+
+      requests.push(request);
+
+      return request;
+    };
+
+    window.eval(client);
+    const card = window.document.querySelector<HTMLElement>('[data-task="move-task"]');
+    const destination = window.document.querySelector<HTMLElement>('[data-status="blocked"]');
+    assert.ok(card && destination);
+    const path = join(tasks, "move-task/TASK.md");
+
+    function key(value: string): void {
+      card?.dispatchEvent(
+        new window.KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }),
+      );
+    }
+
+    try {
+      key(" ");
+      key("ArrowRight");
+      key("Escape");
+      assert.equal(requests.length, 0);
+      assert.equal(window.document.querySelectorAll(".drop-target").length, 0);
+      key(" ");
+      key("ArrowRight");
+      key("Enter");
+      assert.equal(requests.length, 1);
+      await requests[0];
+      assert.match(await readFile(path, "utf8"), /status: in-progress/);
+      // A full browser reload follows success. Recreate the document for the next interaction.
+    } finally {
+      window.close();
+    }
+
+    const moved = new JSDOM(await (await fetch(base)).text(), {
+      url: base,
+      runScripts: "outside-only",
+      virtualConsole: new VirtualConsole(),
+    });
+
+    const next = moved.window;
+    let saved: Promise<Response> | undefined;
+    next.fetch = (url, init) => {
+      saved = fetch(new URL(String(url), base), {
+        ...init,
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
+      });
+
+      return saved;
+    };
+
+    next.eval(client);
+
+    try {
+      const dragged = next.document.querySelector<HTMLElement>('[data-task="move-task"]');
+      const blocked = next.document.querySelector<HTMLElement>('[data-status="blocked"]');
+      assert.ok(dragged && blocked);
+      dragged.dispatchEvent(new next.Event("dragstart", { bubbles: true }));
+      blocked.dispatchEvent(new next.Event("dragover", { bubbles: true, cancelable: true }));
+      assert.ok(blocked.classList.contains("drop-target"));
+      blocked.dispatchEvent(new next.Event("drop", { bubbles: true, cancelable: true }));
+      assert.ok(saved);
+      await saved;
+      assert.match(await readFile(path, "utf8"), /status: blocked/);
+    } finally {
+      next.close();
+    }
+
+    const failed = new JSDOM(await (await fetch(base)).text(), {
+      url: base,
+      runScripts: "outside-only",
+      virtualConsole: new VirtualConsole(),
+    });
+
+    const last = failed.window;
+    last.fetch = () => Promise.resolve(new Response("Rejected", { status: 403 }));
+    last.HTMLElement.prototype.scrollIntoView = () => undefined;
+    last.eval(client);
+
+    try {
+      const element = last.document.querySelector<HTMLElement>('[data-task="move-task"]');
+      assert.ok(element);
+
+      for (const value of [" ", "ArrowRight", "Enter"])
+        element.dispatchEvent(
+          new last.KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }),
+        );
+      await new Promise((resolveTurn) => setTimeout(resolveTurn, 10));
+      const alert = last.document.querySelector<HTMLElement>("#move-error");
+      assert.equal(alert?.hidden, false);
+      assert.match(alert?.textContent ?? "", /Could not confirm/);
+      assert.equal(last.document.querySelector(".board")?.hasAttribute("aria-busy"), false);
+      assert.match(await readFile(path, "utf8"), /status: blocked/);
+    } finally {
+      last.close();
+    }
+  });
+});
+
+test("touch-compatible pointer handle saves the drop destination", async () => {
+  await fixture(async (base, tasks) => {
+    await task(tasks, "pointer-task");
+
+    const dom = new JSDOM(await (await fetch(base)).text(), {
+      url: base,
+      runScripts: "outside-only",
+      virtualConsole: new VirtualConsole(),
+    });
+
+    const window = dom.window;
+    let saved: Promise<Response> | undefined;
+    window.HTMLElement.prototype.setPointerCapture = () => undefined;
+    window.HTMLElement.prototype.releasePointerCapture = () => undefined;
+    const target = window.document.querySelector<HTMLElement>('[data-status="done"]');
+    assert.ok(target);
+    window.document.elementFromPoint = () => target;
+    window.fetch = (url, init) => {
+      saved = fetch(new URL(String(url), base), {
+        ...init,
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
+      });
+
+      return saved;
+    };
+
+    window.eval(await (await fetch(`${base}/client.js`)).text());
+
+    try {
+      const handle = window.document.querySelector<HTMLButtonElement>(".drag-handle");
+      assert.ok(handle);
+
+      for (const [type, x] of [
+        ["pointerdown", 0],
+        ["pointermove", 50],
+        ["pointerup", 50],
+      ]) {
+        handle.dispatchEvent(
+          Object.assign(new window.Event(String(type), { bubbles: true }), {
+            pointerId: 1,
+            pointerType: "touch",
+            button: 0,
+            clientX: x,
+            clientY: 20,
+          }),
+        );
+      }
+
+      assert.ok(saved);
+      await saved;
+      assert.match(await readFile(join(tasks, "pointer-task/TASK.md"), "utf8"), /status: done/);
+    } finally {
+      window.close();
+    }
   });
 });
