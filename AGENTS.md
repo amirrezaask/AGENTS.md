@@ -28,6 +28,8 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 
 ### Agentic
 - **Subagents:** Prompt the user with suggestions on whether to use subagents, and the model and reasoning.
+- Validation and qualification MUST be done for all session but regression checks come first. First make sure we didn't break anything then check for validity and quality.
+- It's really important when pursuing a goal we should move towards implementing all the goal specifies first and then validation and qualification. We should spend hours validating a half baked implementation which proves nothing.
 
 ### Cleanliness
 - **No leftover files.** Add no Markdown or JSON that nothing will read again (progress notes, handoffs, summaries, audit dumps, receipts). Delete your own scratch files, `.work` contents and stray processes when the request is done.
@@ -59,6 +61,4 @@ Plans are handoff documents agents pass between each other to carry out contextu
 - Specifications must match the actual code. Document implemented behavior, not proposed or unfinished behavior.
 - After implementation and the debrief, update every affected area specification to reflect the changes. Check the updated requirements against the code and available verification before marking the work complete.
 - If a mismatch cannot be resolved or verified, report it and leave the work incomplete; do not present the specification as synchronized.
-
-## Testing
 
