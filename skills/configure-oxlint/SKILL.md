@@ -1,16 +1,33 @@
 ---
 name: configure-oxlint
-description: Configure or migrate Oxlint and its bundled anti-slop rules. Use for lint setup, ESLint migration, or lint configuration and performance problems.
+description: Set up Oxlint, Oxfmt, and upstream anti-slop rules. Use when initializing or changing a project's lint configuration.
 metadata:
   category: web-quality
 ---
 
 # Configure Oxlint
 
-Inspect the existing package manager, configs, custom rules/processors, TypeScript project graph, and lint entry points before changing policy. Preserve checks that Oxlint cannot reproduce; a hybrid ESLint layer may be necessary.
+Use the project's package manager to install Oxlint and Oxfmt. Run both through
+`npm run lint` (or the equivalent package-manager command).
 
-- [Configuration and migration](references/migration-and-integration.md): use when changing tools, scripts, nested configs, or typed linting.
-- [Rule policy](references/policy-and-rules.md): use when choosing plugins, severities, overrides, or installing anti-slop.
-- [Validation](references/validation-and-report.md): use to verify the resulting policy.
+## Base rules
 
-Keep fixes separate from tool/formatter migration where possible. Review behavior-sensitive fixes; do not run repository-wide dangerous fixes. Scope exceptions to the actual file class and rule. Preserve existing ignores and custom checks until equivalent coverage is verified.
+- Enable correctness rules as errors, TypeScript rules, and plugins for the
+  frameworks actually present.
+- Preserve existing ignores and useful checks when migrating. Scope exceptions
+  to the relevant files and rules.
+- Keep type checking separate; lint does not replace it. Use Oxfmt for formatting.
+- Run existing regression checks, then lint and formatting checks after setup.
+
+## Anti-slop
+
+Install the upstream agent skill:
+
+```sh
+npx skills add dmmulroy/anti-slop --skill install-anti-slop
+```
+
+Use `install-anti-slop` to install or update the rules in the target project,
+preserving local customizations and enabling all rules required by its policy.
+Follow [upstream installation guidance](https://github.com/dmmulroy/anti-slop#install-with-an-agent-skill).
+This skill carries no plugin copy or installation script.

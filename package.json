@@ -5,16 +5,17 @@
   "scripts": {
     "install:agents": "node tools/install.ts",
     "check:skills": "node tools/validate-skills.ts",
-    "lint": "oxlint tools && oxfmt --check tools package.json .oxlintrc.json",
+    "lint": "NODE_OPTIONS=\"--import tsx\" oxlint tools && oxfmt --check tools package.json .oxlintrc.json",
     "test": "node --test tools/install.test.ts"
   },
   "dependencies": {
     "effect": "3.22.4"
   },
   "devDependencies": {
-    "@oxlint/plugins": "1.90.0",
     "oxfmt": "0.75.0",
-    "oxlint": "1.90.0"
+    "oxlint": "1.90.0",
+    "oxlint-plugin-anti-slop": "https://codeload.github.com/dmmulroy/anti-slop/tar.gz/13909c9e07590f5a85d93c62712259fe14a883f7",
+    "tsx": "4.23.15"
   },
   "engines": {
     "node": ">=24"

@@ -6,7 +6,11 @@
   "jsPlugins": [
     {
       "name": "anti-slop",
-      "specifier": "./skills/configure-oxlint/anti-slop/assets/anti-slop/index.ts"
+      "specifier": "oxlint-plugin-anti-slop"
+    },
+    {
+      "name": "anti-slop-effect",
+      "specifier": "./node_modules/oxlint-plugin-anti-slop/src/effect/index.ts"
     }
   ],
   "rules": {
@@ -24,7 +28,15 @@
     "anti-slop/no-unknown-returns": "error",
     "anti-slop/no-unknown-type-aliases": "error",
     "anti-slop/no-widen-then-assert": "error",
-    "anti-slop/require-safety-comment-for-type-assertion": "error"
-  },
-  "ignorePatterns": ["tools/oxlint/**"]
+    "anti-slop/require-safety-comment-for-type-assertion": "error",
+    "anti-slop/no-array-filter-map": "error",
+    "anti-slop/no-reduce-accumulator-copy": "error",
+    "anti-slop/require-readable-spacing": "error",
+    "oxc/no-accumulating-spread": "error",
+    "anti-slop-effect/no-manual-effect-error-tag": "error",
+    "anti-slop-effect/no-manual-tag-comparison": "error",
+    "anti-slop-effect/no-manual-tagged-construction": "error",
+    "anti-slop-effect/no-service-constructor-imports": "error",
+    "anti-slop-effect/prefer-effect-match": "error"
+  }
 }

@@ -11,7 +11,7 @@ match the work.
 | --- | --- |
 | `communication` | Required documentation workflow: human briefs, agent plans, and debriefs |
 | `specification` | Required rules for documenting and synchronizing implemented behavior |
-| `configure-oxlint` | Lint setup, migration, and configuration problems |
+| `configure-oxlint` | Base Oxlint/Oxfmt policy and upstream anti-slop skill installation |
 | `performance` | Systems, browser, and GPU performance investigations and optimization |
 | `resource-bounded-runs` | Large copies and resource-heavy build or test processes |
 
@@ -65,6 +65,13 @@ manually; the installer has no destructive force mode. It does not link the
 whole repository or replace an agent's entire skills directory.
 
 ## Maintain
+
+`configure-oxlint` contains instructions only. Install the upstream anti-slop
+agent skill with `npx skills add dmmulroy/anti-slop --skill install-anti-slop`
+for setup in other projects. This library does not carry its copied plugin or
+installer. Its own lint command loads a commit-pinned upstream archive dependency
+through `tsx`, enabling the generic and Effect rule groups. The lockfile records
+the archive integrity; upstream does not publish an official npm package.
 
 Keep one skill per directory, with matching directory and frontmatter names.
 Write a short `description` stating the capability and a specific task trigger.
