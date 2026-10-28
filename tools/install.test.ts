@@ -21,7 +21,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const installer = join(root, "tools", "install.ts");
 
 const skill = readdirSync(join(root, "skills")).find(
-  (name) => !["factory"].includes(name) && existsSync(join(root, "skills", name, "SKILL.md")),
+  (name) =>
+    !["factory", "atlas"].includes(name) && existsSync(join(root, "skills", name, "SKILL.md")),
 );
 
 assert.ok(skill);
@@ -103,7 +104,7 @@ test("selected install includes global workflow skills; foreign symlinks are pre
     assert.equal(invoke(home, skill).status, 0);
     assert.deepEqual(
       readdirSync(join(home, ".agents", "skills")).sort(),
-      [...new Set([skill, "factory"])].sort(),
+      [...new Set([skill, "factory", "atlas"])].sort(),
     );
     const destination = join(home, ".codex", "skills", skill);
     rmSync(destination);
@@ -156,7 +157,7 @@ const templateSources = [
   { name: "BRIEF_TEMPLATE.md", path: "skills/factory/templates/BRIEF_TEMPLATE.md" },
   { name: "PLAN_TEMPLATE.md", path: "skills/factory/templates/PLAN_TEMPLATE.md" },
   { name: "DEBRIEF_TEMPLATE.md", path: "skills/factory/templates/DEBRIEF_TEMPLATE.md" },
-  { name: "SPEC_TEMPLATE.md", path: "skills/factory/templates/SPEC_TEMPLATE.md" },
+  { name: "SPEC_TEMPLATE.md", path: "skills/atlas/templates/AREA_TEMPLATE.md" },
 ];
 
 const globalDirectories = [".agents", ".codex", ".claude"];
@@ -225,7 +226,7 @@ test("foreign template aliases and regular files fail preflight without partial 
 });
 
 test("missing template or required skill fails before any home mutation", () => {
-  for (const missing of ["template", "skill"])
+  for (const missing of ["template", "factory", "atlas"])
     isolated((temporary) => {
       const fixture = join(temporary, "fixture");
       const home = join(temporary, "home");
@@ -234,11 +235,10 @@ test("missing template or required skill fails before any home mutation", () => 
       writeFileSync(join(fixture, "tools", "install.ts"), readFileSync(installer));
       writeFileSync(join(fixture, "AGENTS.md"), "global");
 
-      for (const name of ["factory"]) {
+      for (const name of ["factory", "atlas"]) {
         mkdirSync(join(fixture, "skills", name), { recursive: true });
 
-        if (missing !== "skill" || name !== "factory")
-          writeFileSync(join(fixture, "skills", name, "SKILL.md"), "skill");
+        if (missing !== name) writeFileSync(join(fixture, "skills", name, "SKILL.md"), "skill");
       }
 
       for (const { name, path } of templateSources) {
@@ -262,7 +262,7 @@ test("missing template or required skill fails before any home mutation", () => 
     });
 });
 
-test("Factory migrates former nested template aliases and retires both workflow skills on selected installs", () =>
+test("migrates former nested template aliases and retires old workflow skills on selected installs", () =>
   isolated((home) => {
     for (const directory of globalDirectories) {
       const base = join(home, directory);
@@ -294,5 +294,30 @@ test("Factory migrates former nested template aliases and retires both workflow 
 
       for (const { name, path } of templateSources)
         assert.equal(readlinkSync(join(home, directory, name)), join(root, path));
+    }
+  }));
+
+test("migrates the former Factory spec alias to Atlas on selected installs, including dangling links", () =>
+  isolated((home) => {
+    const oldSource = join(root, "skills", "factory", "templates", "SPEC_TEMPLATE.md");
+
+    for (const directory of globalDirectories) {
+      mkdirSync(join(home, directory));
+      symlinkSync(oldSource, join(home, directory, "SPEC_TEMPLATE.md"));
+    }
+
+    assert.equal(invoke(home, "--dry-run", skill).status, 0);
+    assert.equal(readlinkSync(join(home, ".agents", "SPEC_TEMPLATE.md")), oldSource);
+    assert.equal(invoke(home, skill).status, 0);
+
+    for (const directory of globalDirectories) {
+      assert.equal(
+        readlinkSync(join(home, directory, "SPEC_TEMPLATE.md")),
+        join(root, "skills", "atlas", "templates", "AREA_TEMPLATE.md"),
+      );
+      assert.equal(
+        readlinkSync(join(home, directory, "skills", "atlas")),
+        join(root, "skills", "atlas"),
+      );
     }
   }));

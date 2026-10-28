@@ -3,6 +3,10 @@
 Inspect relevant code, existing specs, tests, and supplied evidence. Summarize
 what exists today and distinguish observations from assumptions. For an existing
 Factory task, start from its brief rather than restarting discovery.
+Use [Atlas's maintenance guide](../../atlas/references/maintenance.md) for missing
+knowledge about affected areas/workflows. Inspect actors, writers and interfaces
+beyond the edited files. Keep future requirements in the brief until implemented;
+do not initialize a full project baseline without ADMIN's `/atlas` command.
 
 Ask the highest-impact unresolved question first. Keep related questions small
 enough to answer together; follow ADMIN's vocabulary and build on their answers.

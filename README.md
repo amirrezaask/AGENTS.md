@@ -2,21 +2,67 @@
 
 `AGENTS.md` holds global conventions. Factory is the single software development
 workflow, from clarification and approved briefs to plans, implementation,
-verification, debriefs, and current area specifications. Specialist skills add
-focused guidance within that workflow.
+verification and debriefs. Atlas owns software specification discovery, structure
+and templates; Factory uses its maintenance guidance during delivery.
 
 ## Skills
 
 | Skill | Task trigger |
 | --- | --- |
 | `factory` | Features, bug fixes, software development, Factory tasks and local task board |
+| `atlas` | Explicit `/atlas` initialization and documentation of an existing project |
 | `configure-oxlint` | Base Oxlint/Oxfmt policy and upstream anti-slop skill installation |
 | `performance` | Systems, browser, and GPU performance investigations and optimization |
 | `resource-bounded-runs` | Large copies and resource-heavy build or test processes |
 
-Factory replaces the former `communication` and `specification` skills. Its
-[entrypoint](skills/factory/SKILL.md) links clarification and planning guidance,
-area-specification rules, all document templates, and the optional task board.
+Factory replaces the former `communication` workflow. Its
+[entrypoint](skills/factory/SKILL.md) links clarification, planning, delivery
+templates and the optional task board. [Atlas](skills/atlas/SKILL.md) replaces
+the former specification conventions with evidence-based system discovery.
+
+## Atlas specifications
+
+Initialize documentation for an existing project with:
+
+```text
+/atlas
+/atlas /path/to/project
+/atlas the ordering subsystem in this repository
+```
+
+`/atlas [project path or scope]` is the only command that starts this baseline
+workflow. Ordinary coding, explanation and documentation requests do not start
+initialization. Atlas disables implicit skill invocation. Hosts that select
+skills through `$atlas` or `/skills` should select the skill and include the
+literal `/atlas` command in the request; this repository documents an agent
+command convention, not a new host command parser.
+
+Atlas inventories actors, entry points, state writers and integrations; maps
+responsibilities; traces actor flows; and checks rules against alternate paths
+and contrary evidence before writing. Its guides cover bounded investigation of
+large repositories, source/runtime evidence, coverage gaps and accepted intent.
+Contracts stay with areas; decision reasoning stays in linked task plans/debriefs.
+
+```text
+docs/
+  README.md
+  architecture.md
+  domain.md
+  data-model.md
+  quality.md
+  operations.md
+  areas/<area-name>.md
+  workflows/<flow-name>.md
+  tasks/<task-name>/
+  reports/
+```
+
+A full baseline creates the six root documents and the applicable areas and
+workflows. Scoped maintenance updates affected documents only. Atlas preserves
+historical documents unless migration is requested; it does not create empty
+Factory tasks or require contracts/decisions directories. Factory reads affected
+specifications before planning and reconciles them after verification without
+implicitly starting a full baseline.
 
 ## Factory tasks
 
@@ -33,7 +79,9 @@ docs/tasks/<task-name>/
 Agents may revise the plan while preserving the brief and existing area-spec
 requirements. Requirement changes need ADMIN's explicit authorization. Final
 verification runs regression, acceptance, then quality checks. Debriefs live in
-`docs/reports/`; verified current behavior lives in `docs/specs/`.
+`docs/reports/`; system specifications live directly under `docs/`, with area
+rules/contracts in `docs/areas/` and actor flows in `docs/workflows/`. Existing
+`docs/specs/` files remain in place until an authorized migration.
 
 The optional board groups cards into Ready, In progress, Blocked, and Done.
 The single-file React app in `index.html` uses adapted shadcn components and
@@ -72,14 +120,17 @@ npm run install:agents -- --list
 npm run install:agents -- performance
 ```
 
-Selected installs include Factory and the global files. The four existing
+Selected installs include Factory, Atlas and the global files. The four existing
 `BRIEF_TEMPLATE.md`, `PLAN_TEMPLATE.md`, `DEBRIEF_TEMPLATE.md`, and
-`SPEC_TEMPLATE.md` aliases now point to `skills/factory/templates/`.
-`TASK_TEMPLATE.md` is bundled with Factory. Installing through `npx skills`
-includes bundled resources; global aliases and AGENTS.md require this installer.
+`SPEC_TEMPLATE.md` aliases remain available. Brief/plan/debrief aliases point into
+`skills/factory/templates/`; SPEC_TEMPLATE.md points to
+`skills/atlas/templates/AREA_TEMPLATE.md`. TASK_TEMPLATE.md is bundled with
+Factory; Atlas bundles root/area/workflow specification templates. Installing
+through `npx skills` includes bundled resources; install both Factory and Atlas
+when using delivery integration. Global aliases and AGENTS.md require this installer.
 
-Managed former root and communication/specification template links migrate even
-when dangling. Managed communication/specification skill links are removed on
+Managed former root, Factory spec and communication/specification template links
+migrate even when dangling. Managed communication/specification skill links are removed on
 full and selected installs. Other retired skill links are cleaned only on a full
 install. Known skill links from `~/dev/Amirreza.md` also migrate. Unrelated files,
 directories, and symlinks are preserved; collisions fail preflight before changes.

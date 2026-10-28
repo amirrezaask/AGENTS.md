@@ -1,6 +1,6 @@
 ---
 name: factory
-description: Guide software features and bug fixes from clarification and approved briefs through implementation, verification, debriefs, and area specifications. Use for software development work, Factory tasks, or the local task board; research discussions alone do not start implementation.
+description: Guide software features and bug fixes from clarification and approved briefs through implementation, verification and debriefs, integrating Atlas specifications. Use for software development work, Factory tasks, or the local task board; research discussions alone do not start implementation.
 ---
 
 # Factory
@@ -82,10 +82,12 @@ Write the debrief using the [debrief template](templates/DEBRIEF_TEMPLATE.md) at
 outcomes, plan changes, verification, remaining work, and useful unrelated
 findings, separating evidence from assumptions. Keep raw output gitignored.
 
-Then follow [area specifications](references/specifications.md) and update
-`docs/specs/<area-name>.spec.md` with verified, implemented behavior, using the
-[spec template](templates/SPEC_TEMPLATE.md). Add requirements for new behavior;
-existing requirements retain their meaning unless ADMIN authorized a change.
+Then follow [specification integration](references/specifications.md) and Atlas's
+targeted maintenance guidance to update affected root, area and workflow documents
+with verified behavior. Atlas owns their methods, structure and templates. Do
+not start a full baseline without ADMIN's `/atlas` command. Add requirements for
+new behavior; existing requirements retain their meaning unless ADMIN authorized
+a change.
 
 Mark the task `done` only after all brief requirements and required checks are
 satisfied, the debrief exists, and affected specs match verified behavior.
@@ -101,7 +103,8 @@ those sources before choosing the next step; chat history alone is insufficient.
 Keep status and blockers in `TASK.md`, revisions in `PLAN.md`, and results in the
 debrief rather than creating parallel progress logs.
 
-For standalone specification or debrief work, load the relevant template and
-reference directly; a new development task is unnecessary. Factory adds no
-workflow engine, evaluation harness, session dispatcher, or unrelated tooling.
+For standalone specification initialization, ADMIN invokes `/atlas`. For a
+standalone debrief, load its template directly; a new development task is
+unnecessary. Factory adds no workflow engine, evaluation harness, session
+dispatcher, or unrelated tooling.
 The optional local board changes task metadata only; it never starts agents.

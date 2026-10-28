@@ -7,7 +7,10 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 - `docs/tasks/<task-name>/`: Factory tasks with `TASK.md` metadata, approved `BRIEF.md`, and mutable `PLAN.md`. Historical briefs and plans stay in place unless migration is requested.
 - `docs/tasks/server.ts`: the optional Factory board server; this is the specific exception to the tooling location rule.
 - `docs/reports/`: every benchmark, test and verification result, one dir or `.md` per run, `$date-$title`. Track only Markdown summaries; raw output (json, png, logs, traces) is gitignored. Playwright and playthrough output is written here by the config.
-- `docs/specs/`: written specifications of implemented software behavior, one `<area-name>.spec.md` file per area; keep each in sync with the code.
+- `docs/README.md`, `docs/architecture.md`, `docs/domain.md`, `docs/data-model.md`, `docs/quality.md`, and `docs/operations.md`: Atlas's system purpose/navigation, structure, shared concepts, data ownership, quality requirements, and operational behavior. These documents live directly under `docs/`.
+- `docs/areas/<area-name>.md`: ground rules, state ownership, and relevant contracts for each software area.
+- `docs/workflows/<flow-name>.md`: actor goals, triggers, steps, outcomes, and failure/recovery behavior across areas. Actors include users, external systems, jobs, and operators.
+- Keep specification facts in one owning document and link related documents. Contracts belong in areas; consequential decisions and their reasoning belong in task plans/debriefs, linked from the relevant specification. No mandatory `contracts/` or `decisions/` directories. Keep historical specs in place unless migration is requested.
 - `tools/`: all scripts, build/install tooling, benchmark drivers, checks, generators and their fixtures. Nothing executable at the repo root or in `scripts/`.
 - `.work/`: gitignored scratch space.
 - `.worktrees/`: All git worktrees created by different agents.
@@ -40,9 +43,14 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 ## Documentation workflow
 
 For software development work, read [Factory](skills/factory/SKILL.md) and follow
-its clarification, approved brief, plan, task, verification, debrief, and area
-specification workflow. Factory is the single owner of these rules. Research
-discussions do not authorize implementation.
+its clarification, approved brief, plan, task, verification, and debrief workflow.
+[Atlas](skills/atlas/SKILL.md) owns specification discovery methods, the structure
+above, and specification templates. Only ADMIN's explicit `/atlas` command starts
+initialization/documentation of an existing project; do not infer it from ordinary
+coding or explanation requests. Factory reads affected specs before planning and
+uses Atlas's targeted maintenance guidance to reconcile them with verified
+behavior before completion. Research discussions do not authorize implementation.
 
 GLOBAL template filenames remain available through installer-managed symlinks;
-the canonical templates live inside Factory.
+brief, plan, task and debrief templates live inside Factory; specification
+templates live inside Atlas.

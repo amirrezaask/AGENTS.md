@@ -76,7 +76,7 @@ function main(): void {
     join(home, ".cursor", "skills-cursor"),
   ];
 
-  const requiredSkills = ["factory"];
+  const requiredSkills = ["factory", "atlas"];
 
   for (const name of requiredSkills) {
     const source = join(repo, "skills", name, "SKILL.md");
@@ -93,7 +93,7 @@ function main(): void {
     { name: "BRIEF_TEMPLATE.md", path: "skills/factory/templates/BRIEF_TEMPLATE.md" },
     { name: "PLAN_TEMPLATE.md", path: "skills/factory/templates/PLAN_TEMPLATE.md" },
     { name: "DEBRIEF_TEMPLATE.md", path: "skills/factory/templates/DEBRIEF_TEMPLATE.md" },
-    { name: "SPEC_TEMPLATE.md", path: "skills/factory/templates/SPEC_TEMPLATE.md" },
+    { name: "SPEC_TEMPLATE.md", path: "skills/atlas/templates/AREA_TEMPLATE.md" },
   ];
 
   for (const { path } of globalFiles) {
@@ -111,6 +111,9 @@ function main(): void {
         destination: join(base, name),
         previousSources: [
           join(repo, name),
+          ...(name === "SPEC_TEMPLATE.md"
+            ? [join(repo, "skills/factory/templates/SPEC_TEMPLATE.md")]
+            : []),
           join(
             repo,
             "skills",
