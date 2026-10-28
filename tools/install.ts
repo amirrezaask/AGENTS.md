@@ -5,6 +5,7 @@ import {
   readdirSync,
   readlinkSync,
   realpathSync,
+  statSync,
   symlinkSync,
   unlinkSync,
 } from "node:fs";
@@ -27,6 +28,7 @@ const skills = readdirSync(join(repo, "skills"), { withFileTypes: true })
 interface Link {
   source: string;
   destination: string;
+  previousSource?: string;
 }
 
 function present(path: string): boolean {
@@ -65,13 +67,34 @@ function main(): void {
     ...globals.map((path) => join(path, "skills")),
     join(home, ".cursor", "skills-cursor"),
   ];
-  const names = selected.length ? [...new Set(selected)] : skills;
-  const templates = readdirSync(repo).filter(
-    (name) => name === "AGENTS.md" || name.endsWith("_TEMPLATE.md"),
-  );
+  const requiredSkills = ["communication", "specification"];
+  for (const name of requiredSkills) {
+    const source = join(repo, "skills", name, "SKILL.md");
+    if (!existsSync(source) || !statSync(source).isFile()) {
+      throw new Error(`Missing required global workflow skill: ${source}`);
+    }
+  }
+  const names = selected.length ? [...new Set([...selected, ...requiredSkills])] : skills;
+  const globalFiles = [
+    { name: "AGENTS.md", path: "AGENTS.md" },
+    { name: "BRIEF_TEMPLATE.md", path: "skills/communication/templates/BRIEF_TEMPLATE.md" },
+    { name: "PLAN_TEMPLATE.md", path: "skills/communication/templates/PLAN_TEMPLATE.md" },
+    { name: "DEBRIEF_TEMPLATE.md", path: "skills/communication/templates/DEBRIEF_TEMPLATE.md" },
+    { name: "SPEC_TEMPLATE.md", path: "skills/specification/templates/SPEC_TEMPLATE.md" },
+  ];
+  for (const { path } of globalFiles) {
+    const source = join(repo, path);
+    if (!existsSync(source) || !statSync(source).isFile()) {
+      throw new Error(`Missing bundled global file: ${source}`);
+    }
+  }
   const links: Link[] = [
     ...globals.flatMap((base) =>
-      templates.map((name) => ({ source: join(repo, name), destination: join(base, name) })),
+      globalFiles.map(({ name, path }) => ({
+        source: join(repo, path),
+        destination: join(base, name),
+        previousSource: join(repo, name),
+      })),
     ),
     ...destinations.flatMap((base) =>
       names.map((name) => ({ source: join(repo, "skills", name), destination: join(base, name) })),
@@ -102,12 +125,12 @@ function main(): void {
       throw new Error(`Refusing non-directory or symlink destination: ${base}`);
     }
   }
-  for (const { source, destination } of links) {
+  for (const { source, destination, previousSource } of links) {
     if (!present(destination)) continue;
     if (!lstatSync(destination).isSymbolicLink())
       throw new Error(`Refusing to replace existing path: ${destination}`);
     const target = resolve(dirname(destination), readlinkSync(destination));
-    if (!managed(target, source))
+    if (!managed(target, source) && target !== previousSource)
       throw new Error(`Refusing unrelated symlink: ${destination} -> ${target}`);
   }
   for (const base of globals) {

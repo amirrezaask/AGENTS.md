@@ -37,30 +37,12 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 - **No leftover files.** Add no Markdown or JSON that nothing will read again (progress notes, handoffs, summaries, audit dumps, receipts). Delete your own scratch files, `.work` contents and stray processes when the request is done.
 - **No leftover worktrees** All agents should cleanup worktrees they create after they have committed all changes on the target branch.
 
-### Briefing
-For any request from user whether it's a change, adding a feature or fixing a bug, ask once whether ADMIN wants a written brief. If yes, inspect the relevant code, then write it to `docs/briefs/$date-$title.md` using `docs/briefs/BRIEF_TEMPLATE.md`, falling back to GLOBAL `BRIEF_TEMPLATE.md`.It's really important to note that when writing the brief we should make it concise, summarized and simple, verbosity in brief kills the whole purpose of fast communication of intent and knowledge with ADMIN.
+## Documentation workflow
 
-- Briefs are markdown files that target user and humans as audience not agents.
-- Briefs are designed for communicating intent and knowledge to humans, so they MUST be short, concise and right to point. Creating a long elaborate brief that the user will never read is an antipattern so avoid it.
-- Verbosity is a bad practice in writing Briefs.
-- Following brief template is a MUST.
-- When an agent is prompted directly or indirectly to create a brief, follow this sequence: **Brief → Plan → Implementation → Debrief → Specification update**.
-- Requests like generating a new artifact or creating a report, image, or video do not need a plan unless they change code or a brief is requested.
+At the start of every task, read both skills and follow their instructions:
 
-## Plans
-Plans are handoff documents agents pass between each other to carry out contextual information from one session to another. A basic example would be a consulting session with a high end expensive model and creating plan file, handing it to a simpler cheaper agent model.
-**Plans are designed as Agent-to-Agent documents so they should be expressive, percise, contextful document that agents can follow to implement a requested change or fix.**
-**Use GLOBAL `PLAN_TEMPLATE.md`**
+- [Communication](skills/communication/SKILL.md): briefs, plans, and debriefs.
+- [Specification](skills/specification/SKILL.md): implemented behavior and area specifications.
 
-## Debrief
-- Debriefs record the outcome, work, decisions, and validation of a task.
-- Include useful findings, even when unrelated to the request; distinguish evidence from assumptions and note what remains unverified.
-- Record remaining work and relevant artifacts. Use GLOBAL `DEBRIEF_TEMPLATE.md`.
-
-## Specification
-- Describe the software concisely by area in `docs/specs/`; name each area file `<area-name>.spec.md` and use GLOBAL `SPEC_TEMPLATE.md`.
-- List observable requirements that can be verified both manually and through automated tests. State the conditions, action, and expected outcome clearly.
-- Specifications must match the actual code. Document implemented behavior, not proposed or unfinished behavior.
-- After implementation and the debrief, update every affected area specification to reflect the changes. Check the updated requirements against the code and available verification before marking the work complete.
-- If a mismatch cannot be resolved or verified, report it and leave the work incomplete; do not present the specification as synchronized.
-
+GLOBAL template filenames remain available through installer-managed symlinks;
+the canonical templates live inside these skills.

@@ -1,13 +1,16 @@
 # Global agent instructions and skills
 
-`AGENTS.md` and the four document templates hold global conventions. Skills under
-`skills/<name>/SKILL.md` provide task-specific guidance, selected through their
-short descriptions. No skill loads all personal notes automatically.
+`AGENTS.md` holds global conventions and requires reading `communication` and
+`specification` at the start of every task. Their detailed instructions and
+templates live inside the skills. Other skills apply when their task descriptions
+match the work.
 
 ## Skills
 
 | Skill | Task trigger |
 | --- | --- |
+| `communication` | Required documentation workflow: human briefs, agent plans, and debriefs |
+| `specification` | Required rules for documenting and synchronizing implemented behavior |
 | `configure-oxlint` | Lint setup, migration, and configuration problems |
 | `performance` | Systems, browser, and GPU performance investigations and optimization |
 | `resource-bounded-runs` | Large copies and resource-heavy build or test processes |
@@ -28,8 +31,8 @@ npm run install:agents -- --dry-run
 npm run install:agents
 ```
 
-The installer links `AGENTS.md` and `*_TEMPLATE.md` into `~/.agents`, `~/.codex`
-and `~/.claude`. It installs each skill separately into their existing `skills/`
+The installer links `AGENTS.md` and the template aliases below into `~/.agents`,
+`~/.codex`, and `~/.claude`. It installs each skill separately into their existing `skills/`
 directories and Cursor's `~/.cursor/skills-cursor/`. Existing skill directories
 and unrelated installations are preserved. Edits propagate through symlinks;
 rerun installation after adding, removing or renaming a skill.
@@ -38,6 +41,21 @@ rerun installation after adding, removing or renaming a skill.
 npm run install:agents -- --list
 npm run install:agents -- performance
 ```
+
+Selected installs also include `communication` and `specification`, because
+AGENTS.md requires them. The templates have one canonical location:
+
+| Global filename | Repository source |
+| --- | --- |
+| `BRIEF_TEMPLATE.md` | `skills/communication/templates/BRIEF_TEMPLATE.md` |
+| `PLAN_TEMPLATE.md` | `skills/communication/templates/PLAN_TEMPLATE.md` |
+| `DEBRIEF_TEMPLATE.md` | `skills/communication/templates/DEBRIEF_TEMPLATE.md` |
+| `SPEC_TEMPLATE.md` | `skills/specification/templates/SPEC_TEMPLATE.md` |
+
+The installer migrates its old root-template symlinks to these sources, including
+links left dangling by the move. It verifies required sources before writing.
+Installing through `npx skills` includes bundled templates within each selected
+skill; creating global aliases and installing AGENTS.md requires this installer.
 
 Known symlinks from `~/dev/Amirreza.md` are migrated automatically. Full installs
 remove managed links for retired skills, including `amirreza-md` and `dod`, plus the old
