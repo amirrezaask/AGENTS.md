@@ -23,4 +23,4 @@ Follow BRIEF.md V1–V3. Preserve non-heading behavior from factory-board.spec.m
 Starting revision: master 101f747. Worktree: fix-board-heading. Approval already recorded in brief.
 
 ## Revisions
-None.
+- 2026-10-28: ADMIN requested Claude’s broader design language. M2 now uses verified Claude color tokens, quieter controls and cards, and brief modal/hover transitions with reduced-motion support. Existing requirements remain binding.

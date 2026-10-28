@@ -20,3 +20,6 @@ Remove the top Factory header, show only the project name, and use Claude's webs
 
 ## Approval
 ADMIN explicitly approved this brief in chat on 2026-10-28.
+
+## Authorized clarification — 2026-10-28
+ADMIN explicitly requested extending R2 to Claude website coloring, styling, and animations. The design uses the public site’s neutral/clay color tokens, restrained hover feedback, and short modal transitions respecting reduced motion.

@@ -20,3 +20,5 @@ projects at `docs/tasks/server.ts`, and Factory's installation instructions.
 
 - **R9:** Given a board page, when rendering, then only the consuming project name appears above the columns; no Factory banner, tagline, or Refresh button appears. The name comes from package.json displayName, then name, then the project directory, and is HTML-escaped.
 - **R10:** Given the board assets, when rendering, then project/document headings use bundled Anthropic Serif and controls use bundled Anthropic Sans, served from the local origin with warm neutral styling. Font loading requires no external request.
+
+- **R11:** Given pointer interaction or an opened task modal, when motion is allowed, then controls/cards have brief color transitions and the modal enters with a short fade and 6px translation. When prefers-reduced-motion is reduce, these animations and transitions are disabled. The board uses Claude-reference cream/neutral/clay colors and dark primary controls.
