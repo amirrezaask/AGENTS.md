@@ -10,10 +10,12 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 - `docs/specs/`: written specifications of implemented software behavior, one `<area-name>.spec.md` file per area; keep each in sync with the code.
 - `tools/`: all scripts, build/install tooling, benchmark drivers, checks, generators and their fixtures. Nothing executable at the repo root or in `scripts/`.
 - `.work/`: gitignored scratch space.
+- `.worktrees/`: All git worktrees created by different agents.
 
 ## Rules
 ### Version Control
-**Single branch, no worktrees**, unless ADMIN says otherwise.
+**Keep worktrees of each project in it's own directory in .worktrees**
+**Each new session should start from a clean git worktree from a branch (prompt user for branch default to main/master)**
 **Each agent round should conclude with a commit.**
 **Commit messages should reference the brief and plan document of requested change(in absence of said documents, commit message should just echo user's request)**
 
@@ -32,6 +34,7 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 
 ### Cleanliness
 - **No leftover files.** Add no Markdown or JSON that nothing will read again (progress notes, handoffs, summaries, audit dumps, receipts). Delete your own scratch files, `.work` contents and stray processes when the request is done.
+- **No leftover worktrees** All agents should cleanup worktrees they create after they have committed all changes on the target branch.
 
 ### Briefing
 For any request from user whether it's a change, adding a feature or fixing a bug, ask once whether ADMIN wants a written brief. If yes, inspect the relevant code, then write it to `docs/briefs/$date-$title.md` using `docs/briefs/BRIEF_TEMPLATE.md`, falling back to GLOBAL `BRIEF_TEMPLATE.md`.It's really important to note that when writing the brief we should make it concise, summarized and simple, verbosity in brief kills the whole purpose of fast communication of intent and knowledge with ADMIN.
