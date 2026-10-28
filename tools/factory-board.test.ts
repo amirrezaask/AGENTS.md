@@ -33,6 +33,13 @@ async function fixture(run: (base: string, tasks: string) => Promise<void>): Pro
   const tasks = join(directory, "docs/tasks");
   await mkdir(tasks, { recursive: true });
   await cp(source, join(tasks, "server.ts"));
+
+  for (const font of ["anthropic-serif.woff2", "anthropic-sans.woff2"])
+    await cp(join(dirname(source), font), join(tasks, font));
+  await writeFile(
+    join(directory, "package.json"),
+    JSON.stringify({ name: "test-project", displayName: "Project <Atlas>" }),
+  );
   await symlink(join(repo, "node_modules"), join(directory, "node_modules"));
   const port = await freePort();
 
@@ -124,6 +131,16 @@ test("board renders tasks and both Markdown documents, moves every status, and p
     assert.match(board.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
     const html = await board.text();
     assert.match(html, /Recover account access/);
+    assert.match(html, /<h1 class="project-title">Project &lt;Atlas&gt;<\/h1>/);
+    assert.doesNotMatch(html, /Your software work|>Refresh</);
+
+    for (const font of ["anthropic-serif.woff2", "anthropic-sans.woff2"]) {
+      const response = await fetch(`${base}/fonts/${font}`);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("content-type"), "font/woff2");
+      assert.ok((await response.arrayBuffer()).byteLength > 1000);
+    }
+
     const token = formToken(html);
     const modal = await (await fetch(`${base}/?task=account-recovery`)).text();
     assert.match(modal, /<dialog open/);

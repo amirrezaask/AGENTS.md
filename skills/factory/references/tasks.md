@@ -27,7 +27,9 @@ Install on the first Factory task unless the project already has the board or
 ADMIN requests documents only. Follow the project's package manager and preserve
 existing package scripts and dependency versions that are compatible.
 
-1. Copy [server.ts](../assets/task-board/server.ts) into `docs/tasks/server.ts`.
+1. Copy [server.ts](../assets/task-board/server.ts) into `docs/tasks/server.ts`,
+   and copy its bundled `anthropic-serif.woff2` and `anthropic-sans.woff2` files
+   beside it. Fonts are served locally with no external network dependency.
    This requested location is an exception to the general `tools/` convention.
 2. Add `effect` (compatible with 3.22), `marked` (17), `gray-matter` (4), and
    `sanitize-html` (2) to the consuming project's `package.json` dependencies;
@@ -46,7 +48,7 @@ The server uses the task directory beside its own file, independent of cwd.
 It needs no database, build pipeline, client framework, or external service.
 It displays status columns and cards; clicking a card opens a modal with rendered
 Brief and Plan tabs. The status form moves the card by updating `TASK.md` only.
-Use Refresh to pick up edits made by agents; automatic live updates are not part
+Reload the browser to pick up edits made by agents; automatic live updates are not part
 of this version. The board does not edit briefs/plans, create/delete tasks,
 dispatch agents, or integrate with Codex/Claude sessions.
 
@@ -55,3 +57,12 @@ documents show an explicit unavailable state. Markdown is sanitized before
 rendering. Paths stay within the task directory; symlinked task directories and
 documents are rejected. Writes require the local form token and expected origin.
 The board is local-only and has no remote-access deployment mode.
+
+## Project name and typography
+
+The page shows only the project name above the columns, without a Factory banner,
+tagline, or Refresh button. It reads `displayName`, then `name` from the consuming
+project’s package.json, falling back to its directory name. Names are escaped
+before rendering. The warm neutral palette and bundled Anthropic fonts follow
+the requested Claude reference; [font sources](../assets/task-board/FONTS.md) are
+recorded with the asset.

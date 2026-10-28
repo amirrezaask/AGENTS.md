@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { constants } from "node:fs";
-import { lstat, open, readdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { lstat, open, readdir, readFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import { Effect, Schema } from "effect";
@@ -10,6 +10,24 @@ import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 
 const root = dirname(fileURLToPath(import.meta.url));
+
+async function projectName(): Promise<string> {
+  try {
+    const value = JSON.parse(await readFile(join(root, "../../package.json"), "utf8"));
+
+    const info = Schema.decodeUnknownSync(
+      Schema.Struct({
+        displayName: Schema.optional(Schema.NonEmptyTrimmedString),
+        name: Schema.optional(Schema.NonEmptyTrimmedString),
+      }),
+    )(value);
+
+    return info.displayName ?? info.name ?? basename(dirname(dirname(root)));
+  } catch {
+    return basename(dirname(dirname(root)));
+  }
+}
+
 const statuses = ["ready", "in-progress", "blocked", "done"];
 const labels = ["Ready", "In progress", "Blocked", "Done"];
 
@@ -142,15 +160,18 @@ function enhance() {
 }
 
 const css = `
-:root{color-scheme:light;--ink:#202924;--muted:#56655d;--paper:#f6f7f3;--line:#d8dfd7;--accent:#245b41;font-family:system-ui,sans-serif;color:var(--ink);background:var(--paper)}
-*{box-sizing:border-box}body{margin:0}a{color:var(--accent);text-underline-offset:.2em}button,select{font:inherit}a,button,select{outline-offset:4px}:focus-visible{outline:3px solid #287d54}::selection{background:#c8e6d1}
-header{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:32px 40px 24px;border-bottom:1px solid var(--line)}h1{font-size:28px;letter-spacing:-.03em;margin:0}header p{color:var(--muted);margin:8px 0 0;font-size:14px}.button,button{display:inline-block;background:white;border:1px solid var(--line);border-radius:7px;padding:8px 12px;color:var(--ink);text-decoration:none;cursor:pointer}.button:hover,button:hover{background:#e9efe7}
+@font-face{font-family:"Anthropic Serif";src:url("/fonts/anthropic-serif.woff2") format("woff2");font-display:swap}
+@font-face{font-family:"Anthropic Sans";src:url("/fonts/anthropic-sans.woff2") format("woff2");font-display:swap}
+:root{color-scheme:light;--ink:#262624;--muted:#73726c;--paper:#faf9f5;--line:#e5e3db;--accent:#b85c3e;font-family:"Anthropic Sans",system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+*{box-sizing:border-box}body{margin:0}a{color:var(--accent);text-underline-offset:.2em}button,select{font:inherit}a,button,select{outline-offset:4px}:focus-visible{outline:3px solid #b85c3e}::selection{background:#ead9c6}
+.project-title{font-family:"Anthropic Serif",Georgia,serif;font-size:clamp(32px,4vw,46px);font-weight:400;letter-spacing:-.025em;line-height:1.15;margin:0;padding:40px 44px 12px;overflow-wrap:anywhere}header{display:flex;align-items:center;justify-content:space-between;gap:24px;border-bottom:1px solid var(--line)}h1{font-family:"Anthropic Serif",Georgia,serif;font-weight:400;letter-spacing:-.025em;margin:0}.button,button{display:inline-block;background:white;border:1px solid var(--line);border-radius:7px;padding:8px 12px;color:var(--ink);text-decoration:none;cursor:pointer}.button:hover,button:hover{background:#f0eee6}
 main{padding:28px 40px}.board{display:grid;grid-template-columns:repeat(4,minmax(200px,1fr));gap:20px;align-items:start;overflow-x:auto;padding:4px 4px 20px}.column h2{font-size:14px;display:flex;gap:10px;align-items:center;margin:0 0 18px}.count{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:400}.card{background:white;border:1px solid var(--line);border-radius:12px;margin-bottom:12px;padding:18px}.card>a{display:block;font-size:16px;line-height:1.4;font-weight:600;color:var(--ink);text-decoration:none;overflow-wrap:anywhere}.card>a:hover{text-decoration:underline}.date{font-size:12px;color:var(--muted);margin:12px 0 16px}.status-form{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.status-form select{min-width:0;max-width:100%;border:1px solid var(--line);background:white;border-radius:6px;padding:6px;font-size:12px}.status-form button{font-size:12px;padding:6px 9px}.empty{font-size:13px;color:var(--muted);padding:20px 0;border-top:1px dashed var(--line)}.notice{padding:16px;border:1px solid var(--line);border-radius:8px;background:#fff9e8;overflow-wrap:anywhere}.errors{margin-bottom:24px}
-dialog{width:min(900px,calc(100% - 32px));max-height:88dvh;padding:0;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 65px #15271d33;color:var(--ink);background:white}dialog::backdrop{background:#14221b77}dialog[open]{display:flex;flex-direction:column}dialog header{padding:22px 28px}dialog h2{font-size:20px;margin:0;overflow-wrap:anywhere}.tabs{display:flex;gap:24px;padding:0 28px;border-bottom:1px solid var(--line)}.tabs a{padding:16px 0;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent}.tabs a[aria-current=page]{border-color:var(--accent);color:var(--accent);font-weight:600}.document{padding:12px 28px 32px;overflow:auto;line-height:1.7;overflow-wrap:anywhere}.document>*{max-width:75ch}.document h1{font-size:26px;margin-top:24px}.document h2{font-size:21px;margin-top:28px}.document h3{margin-top:24px}.document pre{background:var(--paper);padding:16px;overflow:auto;border-radius:8px}.document code{font-size:.9em}.document table{border-collapse:collapse;display:block;overflow:auto}.document td,.document th{border:1px solid var(--line);padding:8px 12px;text-align:left}.document blockquote{margin-left:0;padding-left:18px;border-left:2px solid var(--line);color:var(--muted)}
-@media(max-width:700px){header{padding:24px 20px}main{padding:20px 16px}.board{gap:16px;grid-template-columns:repeat(4,minmax(260px,1fr))}dialog header{padding:18px}.tabs{padding:0 18px}.document{padding:8px 18px 24px}header p{max-width:32ch}}
+dialog{width:min(900px,calc(100% - 32px));max-height:88dvh;padding:0;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 65px #26262426;color:var(--ink);background:white}dialog::backdrop{background:#26262466}dialog[open]{display:flex;flex-direction:column}dialog header{padding:22px 28px}dialog h2{font-size:20px;margin:0;overflow-wrap:anywhere}.tabs{display:flex;gap:24px;padding:0 28px;border-bottom:1px solid var(--line)}.tabs a{padding:16px 0;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent}.tabs a[aria-current=page]{border-color:var(--accent);color:var(--accent);font-weight:600}.document{padding:12px 28px 32px;overflow:auto;line-height:1.7;overflow-wrap:anywhere}.document>*{max-width:75ch}.document h1{font-size:26px;margin-top:24px}.document h2{font-size:21px;margin-top:28px}.document h3{margin-top:24px}.document pre{background:var(--paper);padding:16px;overflow:auto;border-radius:8px}.document code{font-size:.9em}.document table{border-collapse:collapse;display:block;overflow:auto}.document td,.document th{border:1px solid var(--line);padding:8px 12px;text-align:left}.document blockquote{margin-left:0;padding-left:18px;border-left:2px solid var(--line);color:var(--muted)}
+@media(max-width:700px){.project-title{padding:28px 20px 8px}main{padding:20px 16px}.board{gap:16px;grid-template-columns:repeat(4,minmax(260px,1fr))}dialog header{padding:18px}.tabs{padding:0 18px}.document{padding:8px 18px 24px}}
 `;
 
 async function render(url: URL): Promise<string> {
+  const name = escape(await projectName());
   const { tasks, errors } = await listTasks();
   const id = url.searchParams.get("task");
   const active = tasks.find((task) => task.id === id);
@@ -184,7 +205,7 @@ async function render(url: URL): Promise<string> {
     <article class="document">${await renderDocument(active.id, tab === "plan" ? "PLAN.md" : "BRIEF.md")}</article></dialog>`
     : "";
 
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Factory — Tasks</title><style>${css}</style><script src="/client.js" defer></script></head><body><header><div><h1>Factory</h1><p>Your software work, from agreed intent to verified behavior.</p></div><a class="button" href="/">Refresh</a></header><main>${errors.length ? `<aside class="errors" aria-label="Task errors">${errors.map((error) => `<p class="notice">${escape(error)}</p>`).join("")}</aside>` : ""}<div class="board">${columns}</div></main>${modal}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name} — Tasks</title><style>${css}</style><script src="/client.js" defer></script></head><body><h1 class="project-title">${name}</h1><main>${errors.length ? `<aside class="errors" aria-label="Task errors">${errors.map((error) => `<p class="notice">${escape(error)}</p>`).join("")}</aside>` : ""}<div class="board">${columns}</div></main>${modal}</body></html>`;
 }
 
 async function move(request: IncomingMessage): Promise<void> {
@@ -236,7 +257,7 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   const address = `127.0.0.1:${port}`;
   response.setHeader(
     "Content-Security-Policy",
-    "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    "default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; script-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   );
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("Cache-Control", "no-store");
@@ -248,6 +269,12 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   if (request.method === "GET" && url.pathname === "/client.js") {
     response.setHeader("Content-Type", "text/javascript; charset=utf-8");
     response.end(`(${enhance.toString()})();`);
+  } else if (
+    request.method === "GET" &&
+    ["/fonts/anthropic-serif.woff2", "/fonts/anthropic-sans.woff2"].includes(url.pathname)
+  ) {
+    response.setHeader("Content-Type", "font/woff2");
+    response.end(await readFile(join(root, basename(url.pathname))));
   } else if (request.method === "GET" && url.pathname === "/") {
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.end(await render(url));
