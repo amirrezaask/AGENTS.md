@@ -100,6 +100,13 @@ async function listTasks() {
   const entries = await readdir(root, { withFileTypes: true });
 
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (
+      ["server.ts", "index.html", "anthropic-serif.woff2", "anthropic-sans.woff2"].includes(
+        entry.name,
+      )
+    )
+      continue;
+
     if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
 
     try {

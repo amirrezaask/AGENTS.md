@@ -84,3 +84,12 @@ Only the project name appears above the columns, read from package.json
 Claude-reference cream/charcoal/clay tokens, locally served Anthropic Serif/Sans,
 and restrained transitions carry the visual language. Motion respects reduced
 motion. [Font sources](../assets/task-board/FONTS.md) are recorded with the assets.
+
+## Symlink installation in this library
+
+When ADMIN requests links for this repository, use relative symlinks from
+`docs/tasks/` to the canonical server, index.html, and two fonts in the skill.
+Run `node --preserve-symlinks-main docs/tasks/server.ts` so import.meta.url keeps
+the consuming task directory. The board ignores these four linked asset names
+when discovering tasks; task directories and documents retain their existing
+symlink protections. Other projects use copied assets unless links are requested.

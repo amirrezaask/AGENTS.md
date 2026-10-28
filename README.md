@@ -46,6 +46,12 @@ React/Tailwind assets at startup; no separate build command or database is neede
 Card moves, modal opening, and tab changes update React state without navigation.
 Historical briefs and plans are not automatically moved.
 
+This repository also symlinks its own board assets into `docs/tasks/`. Run
+`npm run factory:board` from the repository root. The command preserves the
+entrypoint symlink so the board reads this project’s tasks rather than the skill
+asset directory. If the demo occupies port 4310, use
+`PORT=4311 npm run factory:board`.
+
 ## Install
 
 Requires Node.js 24 or newer.

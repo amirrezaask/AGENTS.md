@@ -7,7 +7,8 @@
     "check:skills": "node tools/validate-skills.ts",
     "lint": "NODE_OPTIONS=\"--import tsx\" oxlint tools skills/factory/assets && oxfmt --check tools skills/factory/assets/task-board/server.ts package.json .oxlintrc.json && node tools/check-factory-ui.ts --lint",
     "test": "node --test tools/install.test.ts tools/factory-board.test.ts",
-    "check:types": "tsc --noEmit --strict --types node --esModuleInterop --module nodenext --target es2023 --allowImportingTsExtensions tools/*.ts skills/factory/assets/task-board/server.ts && node tools/check-factory-ui.ts"
+    "check:types": "tsc --noEmit --strict --types node --esModuleInterop --module nodenext --target es2023 --allowImportingTsExtensions tools/*.ts skills/factory/assets/task-board/server.ts && node tools/check-factory-ui.ts",
+    "factory:board": "node --preserve-symlinks-main docs/tasks/server.ts"
   },
   "dependencies": {
     "effect": "3.22.4"

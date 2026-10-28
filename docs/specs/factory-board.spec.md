@@ -28,3 +28,5 @@ projects at `docs/tasks/server.ts`, and Factory's installation instructions.
 
 - **R14:** Given index.html beside server.ts, when starting the server, then the embedded typed React/shadcn application and Tailwind theme are prepared locally into in-memory app.js/app.css responses. Application UI source stays in one HTML file; fonts and runtime assets require no CDN.
 - **R15:** Given an already loaded board, when opening/closing a task, switching Brief/Plan tabs, or moving status, then no full-page navigation or reload occurs. Opening a task fetches both sanitized documents once, tab selection stays in local state, and card moves preserve the mounted app. Failed operations release busy state and expose recovery guidance.
+
+- **R16:** Given this repository’s linked installation, when running factory:board, then docs/tasks/server.ts, index.html, and font symlinks resolve to canonical skill assets, the command preserves the entrypoint symlink, and task discovery reads this project’s docs/tasks without reporting those four assets as invalid tasks. Task-directory/document symlink rejection remains enforced.

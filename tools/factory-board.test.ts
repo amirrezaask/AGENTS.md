@@ -29,15 +29,21 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-async function fixture(run: (base: string, tasks: string) => Promise<void>): Promise<void> {
+async function fixture(
+  run: (base: string, tasks: string) => Promise<void>,
+  linked = false,
+): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "factory board "));
   const tasks = join(directory, "docs/tasks");
   await mkdir(tasks, { recursive: true });
-  await cp(source, join(tasks, "server.ts"));
-  await cp(join(dirname(source), "index.html"), join(tasks, "index.html"));
 
-  for (const font of ["anthropic-serif.woff2", "anthropic-sans.woff2"])
-    await cp(join(dirname(source), font), join(tasks, font));
+  for (const name of ["server.ts", "index.html", "anthropic-serif.woff2", "anthropic-sans.woff2"]) {
+    const asset = join(dirname(source), name);
+
+    if (linked) await symlink(asset, join(tasks, name));
+    else await cp(asset, join(tasks, name));
+  }
+
   await writeFile(
     join(directory, "package.json"),
     JSON.stringify({ name: "test-project", displayName: "Project <Atlas>" }),
@@ -45,7 +51,7 @@ async function fixture(run: (base: string, tasks: string) => Promise<void>): Pro
   await symlink(join(repo, "node_modules"), join(directory, "node_modules"));
   const port = await freePort();
 
-  const child = spawn(process.execPath, [join(tasks, "server.ts")], {
+  const child = spawn(process.execPath, ["--preserve-symlinks-main", join(tasks, "server.ts")], {
     env: { ...process.env, PORT: String(port) },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -400,4 +406,25 @@ test("React pointer grip persists status and updates the card without a reload",
       window.close();
     }
   });
+});
+
+test("symlink installation reads consuming-project tasks and ignores linked board assets", async () => {
+  await fixture(async (base, tasks) => {
+    await task(tasks, "local-project-task");
+    const data = await board(base);
+    assert.equal(data.project, "Project <Atlas>");
+    assert.deepEqual(data.errors, []);
+    assert.deepEqual(
+      data.tasks.map((item) => item.id),
+      ["local-project-task"],
+    );
+    const response = await move(base, data.token, "local-project-task", "blocked");
+    assert.equal(response.status, 200);
+    assert.match(
+      await readFile(join(tasks, "local-project-task/TASK.md"), "utf8"),
+      /status: blocked/,
+    );
+    assert.equal((await fetch(`${base}/app.js`)).status, 200);
+    assert.equal((await fetch(`${base}/fonts/anthropic-serif.woff2`)).status, 200);
+  }, true);
 });
