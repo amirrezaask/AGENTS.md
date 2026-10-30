@@ -12,7 +12,7 @@
     "factory:board": "node --preserve-symlinks-main docs/tasks/server.ts"
   },
   "dependencies": {
-    "effect": "3.22.4"
+    "effect": "4.1.0"
   },
   "devDependencies": {
     "@radix-ui/react-dialog": "^1.3.1",

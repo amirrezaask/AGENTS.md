@@ -15,14 +15,16 @@ import sanitizeHtml from "sanitize-html";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
+const NonEmptyTrimmed = Schema.String.check(Schema.isTrimmed(), Schema.isNonEmpty());
+
 async function projectName(): Promise<string> {
   try {
     const value = JSON.parse(await readFile(join(root, "../../package.json"), "utf8"));
 
     const info = Schema.decodeUnknownSync(
       Schema.Struct({
-        displayName: Schema.optional(Schema.NonEmptyTrimmedString),
-        name: Schema.optional(Schema.NonEmptyTrimmedString),
+        displayName: Schema.optional(NonEmptyTrimmed),
+        name: Schema.optional(NonEmptyTrimmed),
       }),
     )(value);
 
@@ -35,9 +37,9 @@ async function projectName(): Promise<string> {
 const statuses = ["backlog", "inprogress", "blocked", "done"];
 
 const metadata = Schema.Struct({
-  title: Schema.NonEmptyTrimmedString,
-  created: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
-  updated: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
+  title: NonEmptyTrimmed,
+  created: Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)),
+  updated: Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)),
 });
 
 const port = Number(process.env.PORT ?? 4310);

@@ -142,7 +142,7 @@ function Alert({ children }: { children: React.ReactNode }) {
   );
 }
 
-const statusSchema = Schema.Literal("backlog", "inprogress", "blocked", "done");
+const statusSchema = Schema.Literals(["backlog", "inprogress", "blocked", "done"]);
 
 const taskSchema = Schema.Struct({
   id: Schema.String,
