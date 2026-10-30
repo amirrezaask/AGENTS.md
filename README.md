@@ -78,9 +78,10 @@ docs/tasks/<status>/<task-name>/      # status: backlog | inprogress | blocked |
 ```
 
 A task's status is the directory it sits in; move it with `git mv` or the board.
-Subtasks are full tasks nested in their parent. Their briefs refine the parent
+Subtasks are full tasks nested in their parent, and they nest recursively: a
+subtask can have subtasks, to any depth. Their briefs refine the parent
 brief and need no ADMIN approval, and the parent finishes only when all of its
-subtasks are done.
+subtasks, at every depth, are done.
 
 Agents may revise the plan while preserving the brief and existing area-spec
 requirements. Requirement changes need ADMIN's explicit authorization. Final

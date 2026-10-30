@@ -427,6 +427,9 @@ test("legacy flat tasks are reported, subtasks are counted, and a status collisi
     const subtasks = join(tasks, "inprogress/parent-task/subtasks");
     await mkdir(join(subtasks, "done/first-step"), { recursive: true });
     await mkdir(join(subtasks, "backlog/second-step"), { recursive: true });
+    await mkdir(join(subtasks, "backlog/second-step/subtasks/done/deep-step"), {
+      recursive: true,
+    });
     await mkdir(join(tasks, "flat-task"));
     await mkdir(join(tasks, "done/parent-task"), { recursive: true });
     const data = await board(base);
@@ -446,7 +449,7 @@ test("legacy flat tasks are reported, subtasks are counted, and a status collisi
       }),
     )(await (await fetch(`${base}/api/board`)).json());
 
-    assert.deepEqual(counted.tasks[0]?.subtasks, { total: 2, done: 1 });
+    assert.deepEqual(counted.tasks[0]?.subtasks, { total: 3, done: 2 });
     assert.equal((await move(base, data.token, "parent-task", "done")).status, 200);
     assert.match(await readFile(join(tasks, "done/parent-task/TASK.md"), "utf8"), /^title:/m);
   });

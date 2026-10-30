@@ -135,6 +135,9 @@ async function countSubtasks(directory: string): Promise<{ total: number; done: 
     for (const entry of await readdir(parent, { withFileTypes: true })) {
       if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
       count.total += 1;
+      const nested = await countSubtasks(join(parent, entry.name));
+      count.total += nested.total;
+      count.done += nested.done;
 
       if (status === "done") count.done += 1;
     }

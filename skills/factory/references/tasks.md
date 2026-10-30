@@ -36,6 +36,10 @@ contradict, its parent brief; record "Approval: not required, subtask of
 `<parent>`". The board shows a `done/total subtasks` count on the parent card and
 does not move subtasks; moving a parent moves its subtasks with it.
 
+Subtasks nest recursively without limit: any subtask may hold its own
+`subtasks/<status>/…` tree with the same structure and rules. The parent card's
+count covers every descendant at all depths.
+
 ## Install in a consuming project
 
 Install on the first Factory task unless a board already exists or ADMIN requests
