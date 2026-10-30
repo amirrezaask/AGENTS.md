@@ -160,7 +160,11 @@ const boardSchema = Schema.Struct({
   errors: Schema.Array(Schema.String),
 });
 
-const documentsSchema = Schema.Struct({ brief: Schema.String, plan: Schema.String });
+const documentsSchema = Schema.Struct({
+  brief: Schema.String,
+  plan: Schema.String,
+  subtasks: Schema.Array(taskSchema),
+});
 
 type Task = typeof taskSchema.Type;
 
@@ -377,20 +381,29 @@ function TaskCard({
   );
 }
 
-function TaskReader({ task, onClose }: { task: Task | null; onClose: () => void }) {
+function TaskReader({ root, onClose }: { root: Task | null; onClose: () => void }) {
+  const [trail, setTrail] = React.useState<Task[]>([]);
   const [tab, setTab] = React.useState("brief");
   const [documents, setDocuments] = React.useState<Documents | null>(null);
   const [error, setError] = React.useState(false);
   const closeRef = React.useRef<HTMLButtonElement>(null);
   const opener = React.useRef<string | undefined>(undefined);
+  const task = trail[trail.length - 1] ?? null;
+  React.useEffect(() => {
+    if (root) {
+      opener.current = root.id;
+      setTrail([root]);
+    } else setTrail([]);
+  }, [root?.id]);
   React.useEffect(() => {
     if (!task) return;
-    opener.current = task.id;
     const controller = new AbortController();
     setTab("brief");
     setDocuments(null);
     setError(false);
-    request(`/api/tasks/${task.id}`, { signal: controller.signal })
+    request(`/api/tasks/${task.id.split("/").map(encodeURIComponent).join("/")}`, {
+      signal: controller.signal,
+    })
       .then((value) => {
         if (!controller.signal.aborted)
           setDocuments(Schema.decodeUnknownSync(documentsSchema)(value));
@@ -404,7 +417,7 @@ function TaskReader({ task, onClose }: { task: Task | null; onClose: () => void 
 
   return (
     <DialogPrimitive.Root
-      open={Boolean(task)}
+      open={Boolean(root)}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
@@ -422,9 +435,30 @@ function TaskReader({ task, onClose }: { task: Task | null; onClose: () => void 
         }}
       >
         <header className="flex shrink-0 items-center justify-between gap-6 border-b border-border px-6 py-5">
-          <DialogPrimitive.Title className="font-serif text-[26px] font-normal leading-tight">
-            {task?.title}
-          </DialogPrimitive.Title>
+          <div className="min-w-0">
+            {trail.length > 1 ? (
+              <nav
+                aria-label="Parent tasks"
+                className="mb-1 flex flex-wrap gap-x-2 text-sm text-muted-foreground"
+              >
+                {trail.slice(0, -1).map((ancestor, index) => (
+                  <span key={ancestor.id}>
+                    <button
+                      type="button"
+                      className="underline-offset-2 hover:underline"
+                      onClick={() => setTrail(trail.slice(0, index + 1))}
+                    >
+                      {ancestor.title}
+                    </button>
+                    {" /"}
+                  </span>
+                ))}
+              </nav>
+            ) : null}
+            <DialogPrimitive.Title className="font-serif text-[26px] font-normal leading-tight">
+              {task?.title}
+            </DialogPrimitive.Title>
+          </div>
           <DialogPrimitive.Close asChild>
             <Button ref={closeRef} variant="outline" size="icon" aria-label="Close task">
               <X data-icon="inline-start" />
@@ -442,6 +476,9 @@ function TaskReader({ task, onClose }: { task: Task | null; onClose: () => void 
           <TabsList aria-label="Task documents">
             <TabsTrigger value="brief">Brief</TabsTrigger>
             <TabsTrigger value="plan">Plan</TabsTrigger>
+            {documents?.subtasks.length ? (
+              <TabsTrigger value="subtasks">Subtasks ({documents.subtasks.length})</TabsTrigger>
+            ) : null}
           </TabsList>
           {error ? (
             <div className="p-6">
@@ -465,6 +502,32 @@ function TaskReader({ task, onClose }: { task: Task | null; onClose: () => void 
                   dangerouslySetInnerHTML={{ __html: documents.plan }}
                 />
               </TabsPrimitive.Content>
+              {documents.subtasks.length ? (
+                <TabsPrimitive.Content
+                  value="subtasks"
+                  className="min-h-0 flex-1 overflow-auto px-6 pb-8"
+                >
+                  <ul className="divide-y divide-border">
+                    {documents.subtasks.map((subtask) => (
+                      <li key={subtask.id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between gap-4 py-3 text-left hover:text-foreground"
+                          onClick={() => setTrail([...trail, subtask])}
+                        >
+                          <span className="font-medium">{subtask.title}</span>
+                          <span className="shrink-0 text-sm text-muted-foreground">
+                            {columns.find((column) => column.id === subtask.status)?.label}
+                            {subtask.subtasks.total
+                              ? ` · ${subtask.subtasks.done}/${subtask.subtasks.total} subtasks`
+                              : ""}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </TabsPrimitive.Content>
+              ) : null}
             </>
           )}
         </TabsPrimitive.Root>
@@ -648,7 +711,7 @@ function App() {
           );
         })}
       </div>
-      <TaskReader task={selected} onClose={() => setSelected(null)} />
+      <TaskReader root={selected} onClose={() => setSelected(null)} />
     </main>
   );
 }

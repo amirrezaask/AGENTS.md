@@ -454,3 +454,26 @@ test("legacy flat tasks are reported, subtasks are counted, and a status collisi
     assert.match(await readFile(join(tasks, "done/parent-task/TASK.md"), "utf8"), /^title:/m);
   });
 });
+
+test("task detail lists nested subtasks and serves their documents by path", async () => {
+  await fixture(async (base, tasks) => {
+    await task(tasks, "parent-task", "inprogress");
+    const parent = join(tasks, "inprogress/parent-task");
+    await task(parent, "first-step", "subtasks/done");
+    await task(join(parent, "subtasks/done/first-step"), "deep-step", "subtasks/backlog");
+
+    const detail = Schema.decodeUnknownSync(
+      Schema.Struct({
+        subtasks: Schema.Array(Schema.Struct({ id: Schema.String, status: Schema.String })),
+      }),
+    )(await (await fetch(`${base}/api/tasks/parent-task`)).json());
+
+    assert.deepEqual(
+      detail.subtasks.map((item) => item.id),
+      ["parent-task/first-step"],
+    );
+    assert.equal((await fetch(`${base}/api/tasks/parent-task/first-step`)).status, 200);
+    assert.equal((await fetch(`${base}/api/tasks/parent-task/first-step/deep-step`)).status, 200);
+    assert.equal((await fetch(`${base}/api/tasks/parent-task/missing`)).status, 404);
+  });
+});

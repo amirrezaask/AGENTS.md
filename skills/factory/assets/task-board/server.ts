@@ -65,20 +65,25 @@ async function realDirectory(path: string): Promise<boolean> {
   }
 }
 
+async function exists(path: string): Promise<boolean> {
+  return lstat(path).then(
+    () => true,
+    () => false,
+  );
+}
+
+// An id is a slash-separated path: a top-level task name followed by nested subtask names.
 async function locate(id: string): Promise<{ status: string; directory: string }> {
-  if (!slug.test(id)) throw new BoardError("Invalid task name.");
+  const [top, ...nested] = id.split("/");
+
+  if (!top || !slug.test(top) || !nested.every((name) => slug.test(name)))
+    throw new BoardError("Invalid task name.");
   const found = [];
 
   for (const status of statuses) {
-    const directory = join(root, status, id);
+    const directory = join(root, status, top);
 
-    if (
-      await lstat(directory).then(
-        () => true,
-        () => false,
-      )
-    )
-      found.push({ status, directory });
+    if (await exists(directory)) found.push({ status, directory });
   }
 
   if (found.length > 1) throw new BoardError("Task exists in more than one status directory.");
@@ -90,7 +95,27 @@ async function locate(id: string): Promise<{ status: string; directory: string }
   if (!(await realDirectory(only.directory)))
     throw new BoardError("Task directory must be a real directory.");
 
-  return only;
+  let current = only;
+
+  for (const name of nested) {
+    const matches = [];
+
+    for (const status of statuses) {
+      const directory = join(current.directory, "subtasks", status, name);
+
+      if (await exists(directory)) matches.push({ status, directory });
+    }
+
+    if (matches.length > 1)
+      throw new BoardError("Subtask exists in more than one status directory.");
+    const [next] = matches;
+
+    if (!next || !(await realDirectory(next.directory)))
+      throw new BoardError("Task not found.", 404);
+    current = next;
+  }
+
+  return current;
 }
 
 async function taskFile(id: string, name: string): Promise<string> {
@@ -146,6 +171,46 @@ async function countSubtasks(directory: string): Promise<{ total: number; done: 
   }
 
   return count;
+}
+
+async function listSubtasks(id: string) {
+  const { directory } = await locate(id);
+  const subtasks = [];
+
+  for (const status of statuses) {
+    const parent = join(directory, "subtasks", status);
+
+    if (!(await realDirectory(parent))) continue;
+
+    for (const entry of (await readdir(parent, { withFileTypes: true })).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    )) {
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      const childId = `${id}/${entry.name}`;
+
+      try {
+        const { data } = decodeTask(await readDocument(childId, "TASK.md"));
+
+        subtasks.push({
+          id: childId,
+          status,
+          subtasks: await countSubtasks(join(parent, entry.name)),
+          ...data,
+        });
+      } catch {
+        subtasks.push({
+          id: childId,
+          status,
+          subtasks: { total: 0, done: 0 },
+          title: entry.name,
+          created: "",
+          updated: "",
+        });
+      }
+    }
+  }
+
+  return subtasks;
 }
 
 async function listTasks() {
@@ -222,6 +287,8 @@ async function move(request: IncomingMessage): Promise<TaskSummary> {
   if (fields.get("token") !== token)
     throw new BoardError("Refresh the board before changing status.", 403);
   const id = fields.get("task") ?? "";
+
+  if (id.includes("/")) throw new BoardError("Only top-level tasks can change status.");
   const status = fields.get("status") ?? "";
 
   if (!statuses.includes(status)) throw new BoardError("Unknown task status.");
@@ -355,15 +422,21 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   } else if (request.method === "GET" && url.pathname === "/api/board") {
     json(response, { project: await projectName(), token, ...(await listTasks()) });
   } else if (request.method === "GET" && url.pathname.startsWith("/api/tasks/")) {
-    const id = decodeURIComponent(url.pathname.slice("/api/tasks/".length));
+    const id = url.pathname
+      .slice("/api/tasks/".length)
+      .split("/")
+      .map(decodeURIComponent)
+      .join("/");
+
     decodeTask(await readDocument(id, "TASK.md"));
 
-    const [brief, plan] = await Promise.all([
+    const [brief, plan, subtasks] = await Promise.all([
       renderDocument(id, "BRIEF.md"),
       renderDocument(id, "PLAN.md"),
+      listSubtasks(id),
     ]);
 
-    json(response, { brief, plan });
+    json(response, { brief, plan, subtasks });
   } else if (request.method === "POST" && ["/api/status", "/status"].includes(url.pathname)) {
     if (request.headers.origin !== `http://${address}`)
       throw new BoardError("Status changes must originate from this board.", 403);
