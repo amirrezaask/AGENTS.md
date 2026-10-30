@@ -32,7 +32,7 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 
 
 ### Agentic
-- **Subagents:** Prompt the user with suggestions on whether to use subagents, and the model and reasoning.
+- **Autonomous orchestration:** ADMIN starts one session and asks it to implement a task. That session never asks ADMIN questions: it decides, records the decision in `PLAN.md`, and continues. It chooses itself whether to work inline, use subagents, or start separate sessions (`start_session`, initiation `user_asked`, context `fresh`, `source_branch` = its own branch tip) for independent parts or when its context is spent, picking the model and reasoning per piece (Opus/high for determinism-sensitive design, Sonnet/medium for mechanical work). Child sessions inherit this rule. Default to continuing in the current session while productive; a fresh session re-reads docs and costs usage. Never start a session for a task another live session already works (check `list_sessions`), never start more than one continuation, and archive sessions that are idle with no remaining reason to live. Only a change to an approved BRIEF requirement, or an action outside the repository and sessions, comes to ADMIN, written as a blocker in `PLAN.md` while other in-scope work continues.
 - Validation and qualification MUST be done for all session but regression checks come first. First make sure we didn't break anything then check for validity and quality.
 - It's really important when pursuing a goal we should move towards implementing all the goal specifies first and then validation and qualification. We should spend hours validating a half baked implementation which proves nothing.
 

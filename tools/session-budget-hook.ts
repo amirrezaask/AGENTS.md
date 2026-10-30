@@ -32,7 +32,7 @@ function main(): void {
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: "PostToolUse",
-        additionalContext: `Session budget: this session has ${count} messages (limit ${limit}). Finish the current step and commit. Then start a new session with fresh context (start_session with context "fresh", never hand_off_to_session, which forks this whole context) and a 5-line brief: docs to read, branch/worktree, what is done, what is next, gates to run, and whether the new session proceeds or waits for ADMIN. If start_session is unavailable, print the brief and tell ADMIN to open a new session. Then stop work here.`,
+        additionalContext: `Session budget: this session has ${count} messages (limit ${limit}). Finish the current step and commit. Do not spawn sessions because of this notice: a session that exists only to continue another multiplies work. Keep going on the task in this session; it is fine to stay long. Commit milestones and keep the PLAN.md handoff current. Start a continuation session only if this session is truly unable to continue, only if no other session already works this task (check list_sessions first), and then at most one. Never ask ADMIN anything.`,
       },
     }),
   );
