@@ -10,21 +10,74 @@
     @import "tailwindcss" source(none);
     @font-face { font-family: "Anthropic Serif"; src: url("/fonts/anthropic-serif.woff2") format("woff2"); font-display: swap; }
     @font-face { font-family: "Anthropic Sans"; src: url("/fonts/anthropic-sans.woff2") format("woff2"); font-display: swap; }
-    :root { --background: #faf9f5; --foreground: #141413; --card: #fff; --muted: #f0eee6; --muted-foreground: #5e5d59; --border: #e8e6dc; --primary: #141413; --primary-foreground: #faf9f5; --accent: #f0eee6; --accent-foreground: #141413; --ring: #d97757; --clay: #9b4a32; --ease: cubic-bezier(.165,.84,.44,1); }
-    @theme inline { --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-border: var(--border); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-ring: var(--ring); --color-clay: var(--clay); --font-sans: "Anthropic Sans", system-ui, sans-serif; --font-serif: "Anthropic Serif", Georgia, serif; }
-    body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
-    ::selection { background: #ecd5c8; }
-    :focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
-    .reader { overflow-wrap: anywhere; line-height: 1.75; }
-    .reader > * { max-width: 75ch; }
-    .reader h1, .reader h2, .reader h3 { font-family: var(--font-serif); font-weight: 400; line-height: 1.25; margin: 1.4em 0 .6em; }
-    .reader h1 { font-size: 1.8rem; } .reader h2 { font-size: 1.5rem; } .reader h3 { font-size: 1.25rem; }
-    .reader p, .reader ul, .reader ol, .reader pre, .reader table { margin: 1em 0; }
-    .reader ul { list-style: disc; padding-left: 1.5em; } .reader ol { list-style: decimal; padding-left: 1.5em; }
-    .reader a { color: var(--clay); text-decoration: underline; text-underline-offset: .2em; }
-    .reader pre { padding: 1rem; background: var(--muted); border-radius: .5rem; overflow: auto; }
-    .reader table { border-collapse: collapse; display: block; overflow: auto; } .reader th, .reader td { border: 1px solid var(--border); padding: .5rem .75rem; text-align: left; }
-    .reader blockquote { border-left: 2px solid var(--border); padding-left: 1rem; color: var(--muted-foreground); margin: 1em 0; }
+    :root{
+      --background:#faf9f5; --surface-sunken:#f4f2ea; --card:#ffffff;
+      --foreground:#141413; --muted:#f0eee6; --muted-foreground:#5e5d59; --faint:#87867f; /* faint = icons/dividers only (3.6:1) */
+      --border:#e8e6dc; --border-strong:#d8d5c8;
+      --primary:#141413; --primary-foreground:#faf9f5; --accent:#f0eee6; --accent-foreground:#141413;
+      --clay:#c15f3c; --clay-ink:#9b4a32; --clay-tint:#f6e7df; --ring:#d97757;
+      --st-backlog:#87867f; --st-backlog-ink:#5e5d59; --st-backlog-bg:#f0eee6;
+      --st-progress:#c15f3c; --st-progress-ink:#9b4a32; --st-progress-bg:#f6e7df;
+      --st-blocked:#b7791f;  --st-blocked-ink:#80530f;  --st-blocked-bg:#f6ecd9;
+      --st-done:#5b7a4a;     --st-done-ink:#45603a;     --st-done-bg:#e7eddf;
+      --ease:cubic-bezier(.165,.84,.44,1);
+    }
+    @theme inline{
+      --color-background:var(--background); --color-sunken:var(--surface-sunken); --color-card:var(--card);
+      --color-foreground:var(--foreground); --color-muted:var(--muted); --color-muted-foreground:var(--muted-foreground); --color-faint:var(--faint);
+      --color-border:var(--border); --color-border-strong:var(--border-strong);
+      --color-primary:var(--primary); --color-primary-foreground:var(--primary-foreground);
+      --color-accent:var(--accent); --color-accent-foreground:var(--accent-foreground);
+      --color-clay:var(--clay); --color-clay-ink:var(--clay-ink); --color-clay-tint:var(--clay-tint); --color-ring:var(--ring);
+      --color-st-backlog:var(--st-backlog); --color-st-backlog-ink:var(--st-backlog-ink); --color-st-backlog-bg:var(--st-backlog-bg);
+      --color-st-progress:var(--st-progress); --color-st-progress-ink:var(--st-progress-ink); --color-st-progress-bg:var(--st-progress-bg);
+      --color-st-blocked:var(--st-blocked); --color-st-blocked-ink:var(--st-blocked-ink); --color-st-blocked-bg:var(--st-blocked-bg);
+      --color-st-done:var(--st-done); --color-st-done-ink:var(--st-done-ink); --color-st-done-bg:var(--st-done-bg);
+      --font-sans:"Anthropic Sans",system-ui,sans-serif; --font-serif:"Anthropic Serif",Georgia,serif;
+      --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+      --radius-sm:6px; --radius-md:8px; --radius-lg:12px; --radius-xl:16px; --radius-2xl:20px;
+      --shadow-card:0 1px 2px rgb(20 20 19/.04);
+      --shadow-lift:0 1px 2px rgb(20 20 19/.04),0 6px 16px -4px rgb(20 20 19/.08);
+      --shadow-drag:0 12px 32px -8px rgb(20 20 19/.18);
+      --shadow-dialog:0 32px 80px -16px rgb(20 20 19/.28),0 0 0 1px rgb(20 20 19/.04);
+      --text-display:clamp(32px,4vw,44px); --text-display--line-height:1.1;
+      --text-title:28px; --text-title--line-height:1.2;
+      --text-body:15px;  --text-body--line-height:1.5;
+      --text-meta:13px;  --text-meta--line-height:1.4;
+      --text-micro:12px; --text-micro--line-height:1.3;
+    }
+    body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-sans);font-size:15px;-webkit-font-smoothing:antialiased}
+    ::selection{background:#ecd5c8}
+    :focus-visible{outline:2px solid var(--ring);outline-offset:3px;border-radius:var(--radius-md)}
+    .reader{overflow-wrap:anywhere;font-size:16px;line-height:1.7;color:var(--foreground)}
+    .reader>*{max-width:72ch}
+    .reader>:first-child{margin-top:0}
+    .reader h1,.reader h2,.reader h3,.reader h4{font-family:var(--font-serif);font-weight:400;line-height:1.25;letter-spacing:-.005em;margin:2em 0 .6em}
+    .reader h1{font-size:1.75rem}.reader h2{font-size:1.4rem;padding-bottom:.35em;border-bottom:1px solid var(--border)}.reader h3{font-size:1.15rem}
+    .reader h4{font-family:var(--font-sans);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground)}
+    .reader p,.reader ul,.reader ol,.reader pre,.reader table,.reader blockquote{margin:1em 0}
+    .reader ul{list-style:disc;padding-left:1.4em}.reader ol{list-style:decimal;padding-left:1.4em}
+    .reader li{margin:.3em 0}.reader li::marker{color:var(--faint)}
+    .reader li>ul,.reader li>ol{margin:.3em 0}
+    .reader ul:has(>li>input[type=checkbox]){list-style:none;padding-left:.2em}
+    .reader input[type=checkbox]{accent-color:var(--clay);margin-right:.5em;translate:0 1px}
+    .reader a{color:var(--clay-ink);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--clay) 40%,transparent);text-underline-offset:.2em}
+    .reader a:hover{text-decoration-color:var(--clay)}
+    .reader strong{font-weight:600}
+    .reader code{font-family:var(--font-mono);font-size:.86em;background:var(--muted);border:1px solid var(--border);border-radius:5px;padding:.1em .35em}
+    .reader pre{font-family:var(--font-mono);font-size:.84rem;line-height:1.6;background:var(--surface-sunken);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;overflow:auto}
+    .reader pre code{background:none;border:0;padding:0;font-size:inherit}
+    .reader table{border-collapse:separate;border-spacing:0;display:block;overflow:auto;font-size:.9rem;border:1px solid var(--border);border-radius:var(--radius-lg)}
+    .reader th,.reader td{padding:.55rem .85rem;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+    .reader th{background:var(--surface-sunken);font-weight:600;font-size:.8rem;color:var(--muted-foreground)}
+    .reader tr:last-child td{border-bottom:0}
+    .reader blockquote{border-left:3px solid var(--clay-tint);padding:.1em 0 .1em 1rem;color:var(--muted-foreground)}
+    .reader hr{border:0;border-top:1px solid var(--border);margin:2.5em 0}
+    .reader-empty{color:var(--muted-foreground);font-style:italic}
+    .level[data-dir=in]{animation:level-in 160ms var(--ease)}
+    .level[data-dir=out]{animation:level-out 160ms var(--ease)}
+    @keyframes level-in{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+    @keyframes level-out{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
     .dialog-overlay[data-state=open] { animation: overlay-in 160ms var(--ease); }
     .dialog-content[data-state=open] { animation: dialog-in 180ms var(--ease); }
     @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
@@ -44,7 +97,15 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { GripVertical, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronRight,
+  CircleAlert,
+  GripVertical,
+  ListTree,
+  X,
+} from "lucide-react";
 import { Schema } from "effect";
 
 // shadcn/ui component source, adapted inline for this single-file UI.
@@ -54,15 +115,20 @@ function cn(...values: ClassValue[]) {
 }
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-[background-color,color,box-shadow] duration-150 ease-[var(--ease)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        outline: "border border-border bg-background hover:bg-accent",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+        default: "bg-primary text-primary-foreground hover:bg-primary/85",
+        outline: "border border-border bg-card hover:bg-muted",
+        ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
       },
-      size: { default: "h-9 px-4", icon: "size-9" },
+      size: {
+        default: "h-9 px-4",
+        sm: "h-8 px-3 text-meta",
+        icon: "size-9",
+        iconSm: "size-7 rounded-md",
+      },
     },
     defaultVariants: { variant: "default", size: "default" },
   },
@@ -102,10 +168,10 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-40 bg-foreground/35" />
+      <DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-40 bg-[#141413]/40 backdrop-blur-[2px]" />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        className="dialog-content fixed top-1/2 left-1/2 z-50 flex h-[90dvh] w-[80vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl focus:outline-none"
+        className="dialog-content fixed top-1/2 left-1/2 z-50 flex h-[90dvh] w-[80vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-dialog focus:outline-none"
         {...props}
       >
         {children}
@@ -118,7 +184,7 @@ function TabsList(props: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
-      className="flex shrink-0 gap-6 border-b border-border px-6"
+      className="flex shrink-0 gap-7 border-b border-border px-8"
       {...props}
     />
   );
@@ -128,16 +194,25 @@ function TabsTrigger(props: React.ComponentProps<typeof TabsPrimitive.Trigger>) 
   return (
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
-      className="border-b-2 border-transparent py-4 text-sm text-muted-foreground transition-colors data-[state=active]:border-clay data-[state=active]:font-medium data-[state=active]:text-clay"
+      className="relative -mb-px inline-flex items-center gap-2 rounded-t-md border-b-2 border-transparent py-3.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-[state=active]:border-clay data-[state=active]:font-medium data-[state=active]:text-foreground"
       {...props}
     />
   );
 }
 
-function Alert({ children }: { children: React.ReactNode }) {
+function Alert({ children, onRetry }: { children: React.ReactNode; onRetry?: () => void }) {
   return (
-    <div role="alert" className="mb-5 rounded-lg border border-border bg-muted px-4 py-3 text-sm">
-      {children}
+    <div
+      role="alert"
+      className="mb-5 flex items-start gap-3 rounded-xl border border-st-blocked/30 bg-st-blocked-bg px-4 py-3 text-meta text-st-blocked-ink"
+    >
+      <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <div className="min-w-0 flex-1">{children}</div>
+      {onRetry ? (
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          Try again
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -181,6 +256,10 @@ const columns: { id: Status; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 
+function statusLabel(status: Status) {
+  return columns.find((column) => column.id === status)?.label ?? status;
+}
+
 type Picked = { id: string; target: Status; keyboard: boolean };
 
 type Gesture = {
@@ -198,6 +277,142 @@ async function request(path: string, init?: RequestInit) {
   if (!response.ok) throw new Error("Request failed");
 
   return response.json();
+}
+
+function useMediaQuery(query: string) {
+  return React.useSyncExternalStore(
+    (notify) => {
+      if (typeof window.matchMedia !== "function") return () => {};
+      const list = window.matchMedia(query);
+
+      list.addEventListener("change", notify);
+
+      return () => list.removeEventListener("change", notify);
+    },
+    () => typeof window.matchMedia === "function" && window.matchMedia(query).matches,
+    () => false,
+  );
+}
+
+function StatusIcon({ status, className }: { status: Status; className?: string }) {
+  const c = cn("size-3.5 shrink-0", className);
+
+  if (status === "backlog")
+    return (
+      <svg viewBox="0 0 14 14" className={cn(c, "text-st-backlog")} aria-hidden>
+        <circle
+          cx="7"
+          cy="7"
+          r="5.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeDasharray="2.2 2"
+        />
+      </svg>
+    );
+
+  if (status === "inprogress")
+    return (
+      <svg viewBox="0 0 14 14" className={cn(c, "text-st-progress")} aria-hidden>
+        <circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M7 3.5a3.5 3.5 0 0 1 0 7z" fill="currentColor" />
+      </svg>
+    );
+
+  if (status === "blocked")
+    return (
+      <svg viewBox="0 0 14 14" className={cn(c, "text-st-blocked")} aria-hidden>
+        <circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path
+          d="M5.5 4.75v4.5M8.5 4.75v4.5"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+
+  return (
+    <svg viewBox="0 0 14 14" className={cn(c, "text-st-done")} aria-hidden>
+      <circle cx="7" cy="7" r="6.25" fill="currentColor" />
+      <path
+        d="m4.5 7.1 1.7 1.7 3.3-3.4"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+const chip = cva(
+  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-micro font-medium",
+  {
+    variants: {
+      status: {
+        backlog: "bg-st-backlog-bg text-st-backlog-ink",
+        inprogress: "bg-st-progress-bg text-st-progress-ink",
+        blocked: "bg-st-blocked-bg text-st-blocked-ink",
+        done: "bg-st-done-bg text-st-done-ink",
+      },
+    },
+  },
+);
+
+function SubtaskMeter({
+  done,
+  total,
+  className,
+}: {
+  done: number;
+  total: number;
+  className?: string;
+}) {
+  const complete = done === total;
+
+  return (
+    <span
+      className={cn("inline-flex items-center gap-1.5 tabular-nums", className)}
+      aria-label={`${done} of ${total} subtasks done`}
+    >
+      <span className="h-1 w-12 overflow-hidden rounded-full bg-muted">
+        <span
+          className={cn(
+            "block h-full rounded-full transition-[width] duration-300",
+            complete ? "bg-st-done" : "bg-clay",
+          )}
+          style={{ width: `${(done / total) * 100}%` }}
+        />
+      </span>
+      {done}/{total}
+    </span>
+  );
+}
+
+function ProgressRing({ done, total }: { done: number; total: number }) {
+  const r = 7;
+  const c = 2 * Math.PI * r;
+
+  return (
+    <svg viewBox="0 0 18 18" className="size-[18px] -rotate-90" aria-hidden>
+      <circle cx="9" cy="9" r={r} fill="none" stroke="var(--muted)" strokeWidth="2.25" />
+      <circle
+        cx="9"
+        cy="9"
+        r={r}
+        fill="none"
+        stroke={done === total ? "var(--st-done)" : "var(--clay)"}
+        strokeWidth="2.25"
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - done / total)}
+        className="transition-[stroke-dashoffset] duration-300"
+      />
+    </svg>
+  );
 }
 
 function TaskCard({
@@ -223,6 +438,7 @@ function TaskCard({
 }) {
   const gesture = React.useRef<Gesture | null>(null);
   const suppressClick = React.useRef(0);
+  const mine = picked?.id === task.id;
 
   function key(event: React.KeyboardEvent) {
     if (
@@ -265,8 +481,9 @@ function TaskCard({
       aria-describedby="move-instructions"
       aria-disabled={pending}
       className={cn(
-        "relative mb-3 cursor-grab p-[18px] transition-colors hover:border-muted-foreground/40",
-        picked?.id === task.id && "opacity-45",
+        "group relative cursor-grab p-4 shadow-card transition-[box-shadow,border-color,opacity] duration-150 ease-[var(--ease)] hover:border-border-strong hover:shadow-lift focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sunken focus-visible:outline-none",
+        mine && !picked.keyboard && "border-dashed opacity-50 shadow-none",
+        mine && picked.keyboard && "ring-2 ring-clay ring-offset-2 ring-offset-sunken",
         pending && "pointer-events-none opacity-60",
       )}
       onKeyDown={key}
@@ -286,8 +503,8 @@ function TaskCard({
       <Button
         data-grip="true"
         variant="ghost"
-        size="icon"
-        className="absolute top-2.5 right-2 touch-none cursor-grab text-muted-foreground active:cursor-grabbing"
+        size="iconSm"
+        className="absolute top-2.5 right-2.5 cursor-grab touch-none text-faint opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing [@media(hover:none)]:opacity-100"
         aria-label={`Move ${task.title}`}
         aria-describedby="move-instructions"
         disabled={pending}
@@ -366,29 +583,145 @@ function TaskCard({
       <button
         type="button"
         data-open-task={task.id}
-        className="block w-full cursor-pointer pr-8 text-left text-base leading-snug font-semibold hover:underline"
+        className="block w-full cursor-pointer pr-8 text-left text-body leading-snug font-medium text-foreground decoration-clay/40 underline-offset-4 line-clamp-3 hover:underline"
         onClick={() => {
           if (performance.now() >= suppressClick.current) onOpen(task);
         }}
       >
         {task.title}
       </button>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Updated {task.updated}
-        {task.subtasks.total ? ` · ${task.subtasks.done}/${task.subtasks.total} subtasks` : ""}
-      </p>
+      <div className="mt-3 flex items-center gap-3 text-micro text-muted-foreground">
+        <span>Updated {task.updated}</span>
+        {task.subtasks.total ? (
+          <SubtaskMeter done={task.subtasks.done} total={task.subtasks.total} className="ml-auto" />
+        ) : null}
+      </div>
+      {mine && picked.keyboard ? (
+        <p className="mt-3 flex items-center gap-1.5 text-micro font-medium text-clay-ink">
+          <ArrowRight className="size-3" aria-hidden />
+          Moving to {statusLabel(picked.target)} · Enter to drop
+        </p>
+      ) : null}
     </Card>
   );
 }
 
+const statusOrder: Record<Status, number> = { inprogress: 0, blocked: 1, backlog: 2, done: 3 };
+
+function SubtaskPanel({
+  subtasks,
+  onOpen,
+  tone,
+}: {
+  subtasks: readonly Task[];
+  onOpen: (task: Task) => void;
+  tone: "rail" | "page";
+}) {
+  const directDone = subtasks.filter((subtask) => subtask.status === "done").length;
+
+  return (
+    <>
+      <div className="mb-3 px-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-micro font-semibold tracking-[.06em] text-muted-foreground uppercase">
+            Subtasks
+          </h3>
+          <span className="text-micro text-muted-foreground tabular-nums">
+            {directDone}/{subtasks.length}
+          </span>
+        </div>
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn(
+              "h-full rounded-full",
+              directDone === subtasks.length ? "bg-st-done" : "bg-clay",
+            )}
+            style={{ width: `${(directDone / subtasks.length) * 100}%` }}
+          />
+        </div>
+      </div>
+      <ul className="flex flex-col gap-0.5">
+        {[...subtasks]
+          .sort((a, b) => statusOrder[a.status] - statusOrder[b.status])
+          .map((subtask) => (
+            <li key={subtask.id}>
+              <button
+                type="button"
+                data-subtask={subtask.id}
+                onClick={() => onOpen(subtask)}
+                aria-label={`${subtask.title}, ${statusLabel(subtask.status)}${
+                  subtask.subtasks.total
+                    ? `, ${subtask.subtasks.done} of ${subtask.subtasks.total} nested subtasks done`
+                    : ""
+                }`}
+                className={cn(
+                  "group flex min-h-11 w-full items-start gap-2.5 rounded-lg px-2.5 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  tone === "rail" ? "hover:bg-card hover:shadow-card" : "hover:bg-muted",
+                )}
+              >
+                <StatusIcon status={subtask.status} className="mt-[3px]" />
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 text-sm leading-snug line-clamp-2",
+                    subtask.status === "done"
+                      ? "text-muted-foreground"
+                      : "font-medium text-foreground",
+                  )}
+                >
+                  {subtask.title}
+                </span>
+                {subtask.subtasks.total ? (
+                  <span className="mt-px inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-micro text-muted-foreground tabular-nums">
+                    <ListTree className="size-3" aria-hidden />
+                    {subtask.subtasks.done}/{subtask.subtasks.total}
+                  </span>
+                ) : null}
+                <ChevronRight
+                  className="mt-[3px] size-3.5 shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+                  aria-hidden
+                />
+              </button>
+            </li>
+          ))}
+      </ul>
+    </>
+  );
+}
+
+type Crumb =
+  | { kind: "task"; key: string; index: number; task: Task }
+  | { kind: "gap"; key: string };
+
+function crumbs(ancestors: Task[], expanded: boolean): Crumb[] {
+  const all: Crumb[] = ancestors.map((task, index) => ({
+    kind: "task",
+    key: task.id,
+    index,
+    task,
+  }));
+
+  if (expanded || all.length <= 3) return all;
+
+  return [all[0], { kind: "gap", key: "gap" }, ...all.slice(-2)];
+}
+
 function TaskReader({ root, onClose }: { root: Task | null; onClose: () => void }) {
   const [trail, setTrail] = React.useState<Task[]>([]);
+  const [dir, setDir] = React.useState<"in" | "out">("in");
+  const [expandCrumbs, setExpandCrumbs] = React.useState(false);
   const [tab, setTab] = React.useState("brief");
   const [documents, setDocuments] = React.useState<Documents | null>(null);
   const [error, setError] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
   const closeRef = React.useRef<HTMLButtonElement>(null);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
   const opener = React.useRef<string | undefined>(undefined);
+  const levelChanged = React.useRef(false);
+  const wide = useMediaQuery("(min-width:1024px)");
   const task = trail[trail.length - 1] ?? null;
+  const parent = trail.length > 1 ? trail[trail.length - 2] : null;
+  const subs = documents?.subtasks ?? [];
+
   React.useEffect(() => {
     if (root) {
       opener.current = root.id;
@@ -396,11 +729,21 @@ function TaskReader({ root, onClose }: { root: Task | null; onClose: () => void 
     } else setTrail([]);
   }, [root?.id]);
   React.useEffect(() => {
+    if (wide && tab === "subtasks") setTab("brief");
+  }, [wide]);
+  React.useEffect(() => {
     if (!task) return;
     const controller = new AbortController();
     setTab("brief");
     setDocuments(null);
     setError(false);
+    setExpandCrumbs(false);
+
+    if (levelChanged.current) {
+      levelChanged.current = false;
+      requestAnimationFrame(() => titleRef.current?.focus());
+    }
+
     request(`/api/tasks/${task.id.split("/").map(encodeURIComponent).join("/")}`, {
       signal: controller.signal,
     })
@@ -413,7 +756,23 @@ function TaskReader({ root, onClose }: { root: Task | null; onClose: () => void 
       });
 
     return () => controller.abort();
-  }, [task?.id]);
+  }, [task?.id, reloadKey]);
+
+  function go(index: number) {
+    levelChanged.current = true;
+    setDir("out");
+    setTrail(trail.slice(0, index + 1));
+  }
+
+  function drill(subtask: Task) {
+    levelChanged.current = true;
+    setDir("in");
+    setTrail([...trail, subtask]);
+  }
+
+  const document_ = (html: string) => (
+    <article className="reader px-8 py-8 lg:px-12" dangerouslySetInnerHTML={{ __html: html }} />
+  );
 
   return (
     <DialogPrimitive.Root
@@ -434,39 +793,85 @@ function TaskReader({ root, onClose }: { root: Task | null; onClose: () => void 
             ?.focus();
         }}
       >
-        <header className="flex shrink-0 items-center justify-between gap-6 border-b border-border px-6 py-5">
-          <div className="min-w-0">
-            {trail.length > 1 ? (
-              <nav
-                aria-label="Parent tasks"
-                className="mb-1 flex flex-wrap gap-x-2 text-sm text-muted-foreground"
+        <header className="shrink-0 px-8 pt-6 pr-16 pb-5">
+          {parent ? (
+            <div className="mb-2 flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="iconSm"
+                aria-label={`Back to ${parent.title}`}
+                onClick={() => go(trail.length - 2)}
               >
-                {trail.slice(0, -1).map((ancestor, index) => (
-                  <span key={ancestor.id}>
-                    <button
-                      type="button"
-                      className="underline-offset-2 hover:underline"
-                      onClick={() => setTrail(trail.slice(0, index + 1))}
-                    >
-                      {ancestor.title}
-                    </button>
-                    {" /"}
-                  </span>
-                ))}
+                <ArrowLeft />
+              </Button>
+              <nav aria-label="Parent tasks" className="min-w-0">
+                <ol className="flex min-w-0 items-center gap-1 text-meta text-muted-foreground">
+                  {crumbs(trail.slice(0, -1), expandCrumbs).map((crumb, i) => (
+                    <li key={crumb.key} className="flex min-w-0 items-center gap-1">
+                      {i > 0 ? (
+                        <ChevronRight className="size-3.5 shrink-0 text-faint" aria-hidden />
+                      ) : null}
+                      {crumb.kind === "gap" ? (
+                        <button
+                          type="button"
+                          className="rounded px-1 hover:bg-muted hover:text-foreground"
+                          aria-label="Show all parent tasks"
+                          onClick={() => setExpandCrumbs(true)}
+                        >
+                          …
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="max-w-[22ch] truncate rounded px-1 hover:bg-muted hover:text-foreground"
+                          title={crumb.task.title}
+                          onClick={() => go(crumb.index)}
+                        >
+                          {crumb.task.title}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ol>
               </nav>
-            ) : null}
-            <DialogPrimitive.Title className="font-serif text-[26px] font-normal leading-tight">
-              {task?.title}
-            </DialogPrimitive.Title>
-          </div>
+            </div>
+          ) : null}
+          <DialogPrimitive.Title
+            ref={titleRef}
+            tabIndex={-1}
+            className="font-serif text-title font-normal text-balance focus:outline-none"
+          >
+            {task?.title}
+          </DialogPrimitive.Title>
+          {task ? (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-muted-foreground">
+              <span className={chip({ status: task.status })}>
+                <StatusIcon status={task.status} className="size-3" />
+                {statusLabel(task.status)}
+              </span>
+              <span>Updated {task.updated}</span>
+              {task.subtasks.total ? (
+                <span className="inline-flex items-center gap-2">
+                  <ProgressRing done={task.subtasks.done} total={task.subtasks.total} />
+                  {task.subtasks.done} of {task.subtasks.total} subtasks done
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <DialogPrimitive.Close asChild>
-            <Button ref={closeRef} variant="outline" size="icon" aria-label="Close task">
+            <Button
+              ref={closeRef}
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4"
+              aria-label="Close task"
+            >
               <X data-icon="inline-start" />
             </Button>
           </DialogPrimitive.Close>
         </header>
         <DialogPrimitive.Description className="sr-only">
-          Task brief and implementation plan.
+          Task brief, implementation plan and subtasks.
         </DialogPrimitive.Description>
         <TabsPrimitive.Root
           value={tab}
@@ -476,60 +881,61 @@ function TaskReader({ root, onClose }: { root: Task | null; onClose: () => void 
           <TabsList aria-label="Task documents">
             <TabsTrigger value="brief">Brief</TabsTrigger>
             <TabsTrigger value="plan">Plan</TabsTrigger>
-            {documents?.subtasks.length ? (
-              <TabsTrigger value="subtasks">Subtasks ({documents.subtasks.length})</TabsTrigger>
+            {!wide && subs.length ? (
+              <TabsTrigger value="subtasks">
+                Subtasks
+                <span className="rounded-full bg-muted px-1.5 text-micro text-muted-foreground tabular-nums">
+                  {subs.length}
+                </span>
+              </TabsTrigger>
             ) : null}
           </TabsList>
-          {error ? (
-            <div className="p-6">
-              <Alert>Could not load task documents. Close this task and try again.</Alert>
+          <div key={task?.id} data-dir={dir} className="level flex min-h-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              {error ? (
+                <div className="px-8 py-8">
+                  <Alert onRetry={() => setReloadKey((value) => value + 1)}>
+                    Could not load task documents.
+                  </Alert>
+                </div>
+              ) : !documents ? (
+                <div role="status" aria-label="Loading documents" className="space-y-3 px-8 py-8">
+                  {["40%", "92%", "85%", "60%"].map((width) => (
+                    <div
+                      key={width}
+                      className="h-3 animate-pulse rounded bg-muted"
+                      style={{ width }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <TabsPrimitive.Content value="brief" className="min-h-0 flex-1 overflow-auto">
+                    {document_(documents.brief)}
+                  </TabsPrimitive.Content>
+                  <TabsPrimitive.Content value="plan" className="min-h-0 flex-1 overflow-auto">
+                    {document_(documents.plan)}
+                  </TabsPrimitive.Content>
+                  {!wide && subs.length ? (
+                    <TabsPrimitive.Content
+                      value="subtasks"
+                      className="min-h-0 flex-1 overflow-auto px-5 py-6"
+                    >
+                      <SubtaskPanel subtasks={subs} onOpen={drill} tone="page" />
+                    </TabsPrimitive.Content>
+                  ) : null}
+                </>
+              )}
             </div>
-          ) : !documents ? (
-            <p role="status" className="p-6 text-muted-foreground">
-              Loading documents…
-            </p>
-          ) : (
-            <>
-              <TabsPrimitive.Content value="brief" className="min-h-0 flex-1 overflow-auto">
-                <article
-                  className="reader px-6 pb-8"
-                  dangerouslySetInnerHTML={{ __html: documents.brief }}
-                />
-              </TabsPrimitive.Content>
-              <TabsPrimitive.Content value="plan" className="min-h-0 flex-1 overflow-auto">
-                <article
-                  className="reader px-6 pb-8"
-                  dangerouslySetInnerHTML={{ __html: documents.plan }}
-                />
-              </TabsPrimitive.Content>
-              {documents.subtasks.length ? (
-                <TabsPrimitive.Content
-                  value="subtasks"
-                  className="min-h-0 flex-1 overflow-auto px-6 pb-8"
-                >
-                  <ul className="divide-y divide-border">
-                    {documents.subtasks.map((subtask) => (
-                      <li key={subtask.id}>
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-between gap-4 py-3 text-left hover:text-foreground"
-                          onClick={() => setTrail([...trail, subtask])}
-                        >
-                          <span className="font-medium">{subtask.title}</span>
-                          <span className="shrink-0 text-sm text-muted-foreground">
-                            {columns.find((column) => column.id === subtask.status)?.label}
-                            {subtask.subtasks.total
-                              ? ` · ${subtask.subtasks.done}/${subtask.subtasks.total} subtasks`
-                              : ""}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </TabsPrimitive.Content>
-              ) : null}
-            </>
-          )}
+            {wide && subs.length ? (
+              <aside
+                aria-label="Subtasks"
+                className="w-80 shrink-0 overflow-auto border-l border-border bg-sunken/60 px-3 py-5"
+              >
+                <SubtaskPanel subtasks={subs} onOpen={drill} tone="rail" />
+              </aside>
+            ) : null}
+          </div>
         </TabsPrimitive.Root>
       </DialogContent>
     </DialogPrimitive.Root>
@@ -580,7 +986,7 @@ function App() {
     const next = { ...current, target: status };
     pickedRef.current = next;
     setPicked(next);
-    setAnnouncement("Destination: " + columns.find((column) => column.id === status)?.label);
+    setAnnouncement("Destination: " + statusLabel(status));
   }
 
   function cancel() {
@@ -612,9 +1018,7 @@ function App() {
           ? { ...current, tasks: current.tasks.map((item) => (item.id === id ? updated : item)) }
           : current,
       );
-      setAnnouncement(
-        "Task moved to " + columns.find((column) => column.id === status)?.label + ".",
-      );
+      setAnnouncement("Task moved to " + statusLabel(status) + ".");
     } catch {
       setError(
         "Could not confirm the move. Your board is unchanged. Reload to check the saved status, then try again.",
@@ -630,8 +1034,8 @@ function App() {
   }
 
   return (
-    <main className="px-5 py-8 md:px-11 md:py-10">
-      <h1 className="mb-9 font-serif text-[clamp(32px,4vw,46px)] font-normal leading-tight tracking-tight">
+    <main className="mx-auto max-w-[1600px] px-5 py-8 md:px-10 md:py-10">
+      <h1 className="mb-8 font-serif text-display font-normal tracking-[-0.01em]">
         {board?.project ?? "Project tasks"}
       </h1>
       {error ? <Alert>{error}</Alert> : null}
@@ -645,19 +1049,15 @@ function App() {
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
-      {!board && !error ? (
-        <p role="status" className="text-muted-foreground">
-          Loading tasks…
-        </p>
-      ) : null}
       <div
         ref={boardRef}
         data-board="true"
-        className="grid grid-cols-[repeat(4,minmax(240px,1fr))] items-start gap-5 overflow-x-auto p-2 pb-6"
-        aria-busy={Boolean(pending)}
+        className="grid grid-cols-[repeat(4,minmax(264px,1fr))] items-start gap-4 overflow-x-auto pb-6 [scrollbar-gutter:stable]"
+        aria-busy={Boolean(pending) || !board}
       >
         {columns.map((column) => {
           const tasks = board?.tasks.filter((task) => task.status === column.id) ?? [];
+          const dropping = picked?.target === column.id;
 
           return (
             <section
@@ -665,9 +1065,9 @@ function App() {
               data-status={column.id}
               aria-label={column.label}
               className={cn(
-                "min-h-60 rounded-xl transition-colors",
-                picked?.target === column.id &&
-                  "bg-muted outline-2 outline-offset-4 outline-dashed outline-ring",
+                "min-h-64 rounded-2xl bg-sunken p-2 transition-[background-color,box-shadow] duration-150",
+                dropping &&
+                  "bg-clay-tint/60 outline-2 -outline-offset-2 outline-dashed outline-clay/60",
               )}
               onDragOver={(event) => {
                 if (pickedRef.current && !saving.current) {
@@ -684,29 +1084,47 @@ function App() {
                 void move(current.id, column.id);
               }}
             >
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <h2 className="flex items-center gap-2 px-2.5 pt-1.5 pb-3 text-meta font-medium text-foreground">
+                <StatusIcon status={column.id} />
                 {column.label}
-                <span className="font-normal tabular-nums">{tasks.length}</span>
+                <span className="ml-auto rounded-full bg-card px-2 py-0.5 text-micro text-muted-foreground tabular-nums shadow-card">
+                  {tasks.length}
+                </span>
               </h2>
-              {tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  picked={picked}
-                  pending={Boolean(pending)}
-                  onOpen={setSelected}
-                  onPick={pick}
-                  onTarget={target}
-                  onMove={(id, status) => void move(id, status)}
-                  onCancel={cancel}
-                  boardRef={boardRef}
-                />
-              ))}
-              {board && !tasks.length ? (
-                <p className="border-t border-dashed border-border py-5 text-sm text-muted-foreground">
-                  No tasks here.
-                </p>
-              ) : null}
+              <div className="flex flex-col gap-2">
+                {!board
+                  ? [0, 1].map((n) => (
+                      <div
+                        key={n}
+                        className="h-[92px] animate-pulse rounded-xl border border-border bg-card/60"
+                      />
+                    ))
+                  : null}
+                {tasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    picked={picked}
+                    pending={Boolean(pending)}
+                    onOpen={setSelected}
+                    onPick={pick}
+                    onTarget={target}
+                    onMove={(id, status) => void move(id, status)}
+                    onCancel={cancel}
+                    boardRef={boardRef}
+                  />
+                ))}
+                {board && !tasks.length ? (
+                  <p
+                    className={cn(
+                      "rounded-xl border border-dashed border-border-strong px-4 py-8 text-center text-meta text-muted-foreground",
+                      dropping && "border-clay/50 text-clay-ink",
+                    )}
+                  >
+                    {dropping ? "Drop here" : "No tasks"}
+                  </p>
+                ) : null}
+              </div>
             </section>
           );
         })}
