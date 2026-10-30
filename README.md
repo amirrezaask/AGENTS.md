@@ -70,11 +70,17 @@ Discuss a feature or bug with the agent, approve its brief, and let it produce
 an implementation plan. The task then lives in:
 
 ```text
-docs/tasks/<task-name>/
-  TASK.md       # title, status, dates, blocker, debrief link
+docs/tasks/<status>/<task-name>/      # status: backlog | inprogress | blocked | done
+  TASK.md       # title, dates, blocker, debrief link
   BRIEF.md      # approved requirements
   PLAN.md       # implementation approach and recorded revisions
+  subtasks/<status>/<subtask-name>/   # same files; no ADMIN approval needed
 ```
+
+A task's status is the directory it sits in; move it with `git mv` or the board.
+Subtasks are full tasks nested in their parent. Their briefs refine the parent
+brief and need no ADMIN approval, and the parent finishes only when all of its
+subtasks are done.
 
 Agents may revise the plan while preserving the brief and existing area-spec
 requirements. Requirement changes need ADMIN's explicit authorization. Final
@@ -83,9 +89,9 @@ verification runs regression, acceptance, then quality checks. Debriefs live in
 rules/contracts in `docs/areas/` and actor flows in `docs/workflows/`. Existing
 `docs/specs/` files remain in place until an authorized migration.
 
-The optional board groups cards into Ready, In progress, Blocked, and Done.
+The optional board groups cards into Backlog, In progress, Blocked, and Done (one per status directory) and shows subtask progress on parent cards.
 The single-file React app in `index.html` uses adapted shadcn components and
-Tailwind. Cards open a modal with rendered Brief and Plan tabs. Drag-and-drop or keyboard moves update
+Tailwind. Cards open a modal with rendered Brief and Plan tabs. Drag-and-drop or keyboard moves move the task directory and update
 `TASK.md`; they never launch sessions or prove that work is complete.
 The [board installation instructions](skills/factory/references/tasks.md) copy
 `server.ts`, `index.html`, and fonts to the consuming project's `docs/tasks/`, add dependencies to that

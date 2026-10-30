@@ -32,22 +32,45 @@ After brief approval, read [planning guidance](references/plan.md) and use the
 required unless ADMIN requests it. Approval to plan alone does not authorize
 implementation; follow the scope ADMIN actually requested.
 
-Once the approved brief and plan exist, create `docs/tasks/<task-name>/` with:
+Once the approved brief and plan exist, create
+`docs/tasks/<status>/<task-name>/` with:
 
 - `TASK.md`: metadata using the [task template](templates/TASK_TEMPLATE.md).
 - `BRIEF.md`: the approved brief, including its approval record.
 - `PLAN.md`: the implementation plan, linked to `BRIEF.md`.
+
+`<status>` is one of `backlog`, `inprogress`, `blocked` or `done`. The directory
+a task sits in is its status; there is no `status` key in `TASK.md`. Change status
+by moving the directory (`git mv`) and updating `updated`.
 
 Use a descriptive lowercase hyphenated task name and never overwrite another
 task. These are the canonical task documents; do not duplicate them under
 `docs/briefs/` or `docs/plans/`. Existing historical documents remain where they
 are unless ADMIN requests migration. Reuse a task when resuming its work.
 Read [task metadata and board](references/tasks.md) when creating or managing
-tasks or installing the board. Set new tasks to `ready`.
+tasks or installing the board. New tasks start in `backlog/`.
+
+### Subtasks
+
+Split a task into subtasks when it has parts that can be planned, built and
+verified separately. A subtask is the same entity as a task, with the same
+`TASK.md`, `BRIEF.md` and `PLAN.md`, stored in the same status layout inside its
+parent: `docs/tasks/<status>/<task>/subtasks/<status>/<subtask>/`. Differences:
+
+- ADMIN does not approve a subtask brief. The agent drafts and records it with
+  "Approval: not required, subtask of `<parent>`" and proceeds.
+- A subtask brief refines the parent brief; it may add detail and its own
+  requirement IDs but never removes, weakens or reinterprets a parent
+  requirement. Needing that still requires ADMIN's authorization on the parent.
+- A parent moves to `done` only after every subtask is `done` and the parent's
+  own acceptance is verified. Subtasks reuse the parent's debrief unless they
+  produced findings worth their own.
+- Subtasks may nest the same way, but prefer one level.
+
 
 ## Build and verify
 
-Set the task to `in-progress` when implementation starts. Execute the full agreed
+Move the task to `inprogress/` when implementation starts. Execute the full agreed
 scope in coherent increments, with focused checks where they help development.
 For bugs, reproduce the failure and investigate its cause before choosing a fix.
 
@@ -72,8 +95,8 @@ After implementing the scope, verify in this order:
 Repair failures and repeat affected checks. Do not spend extended qualification
 on a partial implementation while leaving agreed requirements unimplemented.
 Record command, result, revision, and limitations; never claim an unrun check
-passed. Use `blocked` when a required decision or external dependency prevents
-progress and record the reason in `TASK.md`. Resume when the blocker is resolved.
+passed. Move the task to `blocked/` when a required decision or external dependency
+prevents progress and record the reason in `TASK.md`. Resume when the blocker is resolved.
 
 ## Learn and adjust
 
@@ -89,10 +112,10 @@ not start a full baseline without ADMIN's `/atlas` command. Add requirements for
 new behavior; existing requirements retain their meaning unless ADMIN authorized
 a change.
 
-Mark the task `done` only after all brief requirements and required checks are
+Move the task to `done/` only after all brief requirements and required checks are
 satisfied, the debrief exists, and affected specs match verified behavior.
-A card's status is user-editable bookkeeping, not proof of completion. If a card
-says `done` but evidence is incomplete, report the discrepancy and reconcile it
+A task's status directory is user-editable bookkeeping, not proof of completion.
+If a task sits in `done/` but evidence is incomplete, report the discrepancy and reconcile it
 before claiming success. Follow project commit and worktree cleanup rules.
 
 ## Resume and scope

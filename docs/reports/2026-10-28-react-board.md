@@ -5,9 +5,9 @@ created: "2026-10-28"
 
 ## Request
 
-ADMIN approved [the brief](../tasks/single-file-react-board/BRIEF.md) requesting
+ADMIN approved [the brief](../tasks/done/single-file-react-board/BRIEF.md) requesting
 index.html beside server.ts, React state without per-click reloads, shadcn and
-Tailwind, and preserved Claude fonts/design. [Plan](../tasks/single-file-react-board/PLAN.md).
+Tailwind, and preserved Claude fonts/design. [Plan](../tasks/done/single-file-react-board/PLAN.md).
 
 ## Outcome
 

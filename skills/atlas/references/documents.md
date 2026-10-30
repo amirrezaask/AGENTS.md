@@ -17,7 +17,7 @@ headings. Contracts stay in areas and decision reasoning stays in linked tasks.
 | `docs/areas/<name>.md` | Responsibility, standing rules, state ownership and contracts | [Area](../templates/AREA_TEMPLATE.md) |
 | `docs/workflows/<name>.md` | Actor goal, trigger, sequence, outcomes and recovery | [Workflow](../templates/WORKFLOW_TEMPLATE.md) |
 
-`docs/tasks/<task>/` and `docs/reports/` retain Factory's conventions. Atlas does
+`docs/tasks/<status>/<task>/` and `docs/reports/` retain Factory's conventions. Atlas does
 not scaffold task records during a baseline. Historical docs remain where they
 are unless ADMIN requests migration. When migrating, preserve rule IDs and meaning,
 repair inbound links, and retire the old canonical text in the same change.

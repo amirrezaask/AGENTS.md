@@ -142,12 +142,13 @@ function Alert({ children }: { children: React.ReactNode }) {
   );
 }
 
-const statusSchema = Schema.Literal("ready", "in-progress", "blocked", "done");
+const statusSchema = Schema.Literal("backlog", "inprogress", "blocked", "done");
 
 const taskSchema = Schema.Struct({
   id: Schema.String,
   title: Schema.String,
   status: statusSchema,
+  subtasks: Schema.Struct({ total: Schema.Number, done: Schema.Number }),
   created: Schema.String,
   updated: Schema.String,
 });
@@ -170,8 +171,8 @@ type Documents = typeof documentsSchema.Type;
 type Status = typeof statusSchema.Type;
 
 const columns: { id: Status; label: string }[] = [
-  { id: "ready", label: "Ready" },
-  { id: "in-progress", label: "In progress" },
+  { id: "backlog", label: "Backlog" },
+  { id: "inprogress", label: "In progress" },
   { id: "blocked", label: "Blocked" },
   { id: "done", label: "Done" },
 ];
@@ -368,7 +369,10 @@ function TaskCard({
       >
         {task.title}
       </button>
-      <p className="mt-3 text-xs text-muted-foreground">Updated {task.updated}</p>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Updated {task.updated}
+        {task.subtasks.total ? ` · ${task.subtasks.done}/${task.subtasks.total} subtasks` : ""}
+      </p>
     </Card>
   );
 }

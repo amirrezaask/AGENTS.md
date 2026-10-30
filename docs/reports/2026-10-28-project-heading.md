@@ -5,9 +5,9 @@ created: "2026-10-28"
 
 ## Request
 
-ADMIN approved [the brief](../tasks/project-name-and-claude-typography/BRIEF.md)
+ADMIN approved [the brief](../tasks/done/project-name-and-claude-typography/BRIEF.md)
 to remove the Factory banner, show only the project name, and follow Claude's
-font and warm neutral styling. [Plan](../tasks/project-name-and-claude-typography/PLAN.md).
+font and warm neutral styling. [Plan](../tasks/done/project-name-and-claude-typography/PLAN.md).
 
 ## Outcome and Decisions
 

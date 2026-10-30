@@ -2,24 +2,39 @@
 
 ## Layout and metadata
 
-Use `docs/tasks/<task-name>/{TASK,BRIEF,PLAN}.md`. Task names are lowercase ASCII
-letters/numbers separated by single hyphens. Reuse existing tasks; never overwrite
-another task to resolve a naming collision.
+Use `docs/tasks/<status>/<task-name>/{TASK,BRIEF,PLAN}.md`. Task names are
+lowercase ASCII letters/numbers separated by single hyphens and are unique across
+all status directories. Reuse existing tasks; never overwrite another task to
+resolve a naming collision.
 
-TASK.md uses YAML frontmatter with nonempty `title`, `status`, and quoted ISO
-`created`/`updated` dates as plain single-line keys. Other metadata and Markdown
-body content are allowed and preserved.
+The status is the directory the task lives in:
 
-| Stored status | Board column | Meaning |
+| Directory | Board column | Meaning |
 | --- | --- | --- |
-| `ready` | Ready | Approved brief and implementation plan exist |
-| `in-progress` | In progress | Implementing or verifying |
-| `blocked` | Blocked | A recorded decision/dependency prevents progress |
-| `done` | Done | Requirements, verification, debrief, and area specs complete |
+| `backlog/` | Backlog | Approved brief and implementation plan exist; not started |
+| `inprogress/` | In progress | Implementing or verifying |
+| `blocked/` | Blocked | A recorded decision/dependency prevents progress |
+| `done/` | Done | Requirements, verification, debrief, and area specs complete |
 
-Record blockers and the debrief link in the Markdown body. A board status change
-is bookkeeping: it does not approve work, execute plans, validate completion, or
+TASK.md uses YAML frontmatter with nonempty `title` and quoted ISO
+`created`/`updated` dates as plain single-line keys. It has no `status` key: the
+directory is the single source of truth. Other metadata and Markdown body content
+are allowed and preserved. Move a task with `git mv` (or the board) and update
+`updated`. Relative links inside a task's documents must survive the move, so link
+to `docs/reports/` from the repo root path or recompute them when moving.
+
+Record blockers and the debrief link in the Markdown body. A status change is
+bookkeeping: it does not approve work, execute plans, validate completion, or
 create agent sessions.
+
+## Subtasks
+
+A task may contain `subtasks/<status>/<subtask-name>/{TASK,BRIEF,PLAN}.md`, the
+same structure and statuses as a top-level task. Subtask names are unique within
+their parent. A subtask brief needs no ADMIN approval but must refine, never
+contradict, its parent brief; record "Approval: not required, subtask of
+`<parent>`". The board shows a `done/total subtasks` count on the parent card and
+does not move subtasks; moving a parent moves its subtasks with it.
 
 ## Install in a consuming project
 
@@ -68,10 +83,14 @@ placement and counts in React without a page reload. Failures keep the local
 board unchanged and explain how to reconcile status. Keyboard moves use Space,
 Left/Right, Enter, and Escape. Titles still open documents.
 
-Reload the browser to import task-file edits made externally. Invalid task
+Reload the browser to import task-file edits made externally. A status move
+renames the task directory between status directories (creating the target
+directory when absent) and refuses a name that already exists there. Directories
+directly under `docs/tasks/` that are not status directories (legacy flat tasks)
+are listed as errors so they can be moved. Invalid task
 metadata is visible without hiding valid tasks; missing documents have an
 unavailable state. The board never edits brief/plan content, creates/deletes
-tasks, dispatches agents, or integrates with Codex/Claude sessions.
+tasks or subtasks, dispatches agents, or integrates with Codex/Claude sessions.
 
 The server reads documents beside itself independent of cwd. It rejects symlinked
 task/document paths, invalid statuses, and writes without the local token and
@@ -91,5 +110,5 @@ When ADMIN requests links for this repository, use relative symlinks from
 `docs/tasks/` to the canonical server, index.html, and two fonts in the skill.
 Run `node --preserve-symlinks-main docs/tasks/server.ts` so import.meta.url keeps
 the consuming task directory. The board ignores these four linked asset names
-when discovering tasks; task directories and documents retain their existing
+when discovering tasks (they sit beside, not inside, the status directories); task directories and documents retain their existing
 symlink protections. Other projects use copied assets unless links are requested.

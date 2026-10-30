@@ -113,10 +113,10 @@ async function board(base: string) {
   return Schema.decodeUnknownSync(boardSchema)(await (await fetch(`${base}/api/board`)).json());
 }
 
-async function task(tasks: string, id: string, status = "ready"): Promise<string> {
-  const path = join(tasks, id);
-  await mkdir(path);
-  const text = `---\ntitle: "Recover account access"\nstatus: ${status}\ncreated: "2026-10-28"\nupdated: "2026-10-28"\nowner: ADMIN\n---\n\nKeep this task context exactly.\n`;
+async function task(tasks: string, id: string, status = "backlog"): Promise<string> {
+  const path = join(tasks, status, id);
+  await mkdir(path, { recursive: true });
+  const text = `---\ntitle: "Recover account access"\ncreated: "2026-10-28"\nupdated: "2026-10-28"\nowner: ADMIN\n---\n\nKeep this task context exactly.\n`;
   await writeFile(join(path, "TASK.md"), text);
   await writeFile(
     join(path, "BRIEF.md"),
@@ -203,34 +203,27 @@ test("React assets and task APIs preserve document rendering, status writes, and
     const docs = await (await fetch(`${base}/api/tasks/account-recovery`)).text();
     assert.match(docs, /<table>/);
     assert.doesNotMatch(docs, /<script>alert|href=\\"javascript:/);
-    const brief = await readFile(join(tasks, "account-recovery/BRIEF.md"), "utf8");
-    const plan = await readFile(join(tasks, "account-recovery/PLAN.md"), "utf8");
+    const brief = await readFile(join(tasks, "backlog/account-recovery/BRIEF.md"), "utf8");
+    const plan = await readFile(join(tasks, "backlog/account-recovery/PLAN.md"), "utf8");
 
-    for (const status of ["in-progress", "blocked", "done", "ready"]) {
+    for (const status of ["inprogress", "blocked", "done", "backlog"]) {
       const response = await move(base, data.token, "account-recovery", status);
       assert.equal(response.status, 200);
       assert.equal(Schema.decodeUnknownSync(taskSchema)(await response.json()).status, status);
-      const changed = await readFile(join(tasks, "account-recovery/TASK.md"), "utf8");
-      assert.equal(
-        changed
-          .replace(/^status:.*$/m, "status: ready")
-          .replace(/^updated:.*$/m, 'updated: "2026-10-28"'),
-        original,
-      );
+      const changed = await readFile(join(tasks, status, "account-recovery/TASK.md"), "utf8");
+      assert.equal(changed.replace(/^updated:.*$/m, 'updated: "2026-10-28"'), original);
+
+      if (status !== "backlog")
+        await assert.rejects(readFile(join(tasks, "backlog/account-recovery/TASK.md")));
     }
 
-    assert.equal(await readFile(join(tasks, "account-recovery/BRIEF.md"), "utf8"), brief);
-    assert.equal(await readFile(join(tasks, "account-recovery/PLAN.md"), "utf8"), plan);
+    assert.equal(await readFile(join(tasks, "backlog/account-recovery/BRIEF.md"), "utf8"), brief);
+    assert.equal(await readFile(join(tasks, "backlog/account-recovery/PLAN.md"), "utf8"), plan);
     const windows = original.replaceAll("\n", "\r\n") + "Persian context: کار\r\n";
-    await writeFile(join(tasks, "account-recovery/TASK.md"), windows);
+    await writeFile(join(tasks, "backlog/account-recovery/TASK.md"), windows);
     assert.equal((await move(base, data.token, "account-recovery", "blocked")).status, 200);
-    const changed = await readFile(join(tasks, "account-recovery/TASK.md"), "utf8");
-    assert.equal(
-      changed
-        .replace(/^status:[^\r\n]*/m, "status: ready")
-        .replace(/^updated:[^\r\n]*/m, 'updated: "2026-10-28"'),
-      windows,
-    );
+    const changed = await readFile(join(tasks, "blocked/account-recovery/TASK.md"), "utf8");
+    assert.equal(changed.replace(/^updated:[^\r\n]*/m, 'updated: "2026-10-28"'), windows);
   });
 });
 
@@ -249,9 +242,9 @@ test("API rejects invalid writes and symlinks while exposing valid tasks and una
     const outside = join(dirname(tasks), "outside");
     await mkdir(outside);
     await writeFile(join(outside, "TASK.md"), original);
-    await symlink(outside, join(tasks, "linked-task"));
-    await rm(join(tasks, "valid-task/PLAN.md"));
-    await symlink(join(outside, "TASK.md"), join(tasks, "valid-task/PLAN.md"));
+    await symlink(outside, join(tasks, "backlog/linked-task"));
+    await rm(join(tasks, "backlog/valid-task/PLAN.md"));
+    await symlink(join(outside, "TASK.md"), join(tasks, "backlog/valid-task/PLAN.md"));
     const data = await board(base);
     assert.equal(data.tasks.length, 1);
     assert.equal(data.errors.length, 2);
@@ -260,8 +253,8 @@ test("API rejects invalid writes and symlinks while exposing valid tasks and una
       /PLAN.md is unavailable/,
     );
     assert.equal((await move(base, token, "linked-task", "done")).status, 400);
-    await rm(join(tasks, "valid-task/TASK.md"));
-    await symlink(join(outside, "TASK.md"), join(tasks, "valid-task/TASK.md"));
+    await rm(join(tasks, "backlog/valid-task/TASK.md"));
+    await symlink(join(outside, "TASK.md"), join(tasks, "backlog/valid-task/TASK.md"));
     assert.equal((await move(base, token, "valid-task", "done")).status, 400);
     assert.equal(await readFile(join(outside, "TASK.md"), "utf8"), original);
   });
@@ -317,10 +310,9 @@ test("React opens the shadcn dialog, switches tabs, moves cards, and cancels key
       }
 
       await eventually(
-        () =>
-          document.querySelector('[data-status="in-progress"] [data-task="move-task"]') !== null,
+        () => document.querySelector('[data-status="inprogress"] [data-task="move-task"]') !== null,
       );
-      assert.match(await readFile(join(tasks, "move-task/TASK.md"), "utf8"), /status: in-progress/);
+      assert.match(await readFile(join(tasks, "inprogress/move-task/TASK.md"), "utf8"), /^title:/m);
       assert.equal(document.getElementById("root"), root);
       assert.equal(window.location.href, base + "/");
       assert.equal(requests.filter((path) => path === "/api/board").length, 1);
@@ -401,7 +393,7 @@ test("React pointer grip persists status and updates the card without a reload",
         () =>
           window.document.querySelector('[data-status="done"] [data-task="move-task"]') !== null,
       );
-      assert.match(await readFile(join(tasks, "move-task/TASK.md"), "utf8"), /status: done/);
+      assert.match(await readFile(join(tasks, "done/move-task/TASK.md"), "utf8"), /^title:/m);
     } finally {
       window.close();
     }
@@ -421,10 +413,41 @@ test("symlink installation reads consuming-project tasks and ignores linked boar
     const response = await move(base, data.token, "local-project-task", "blocked");
     assert.equal(response.status, 200);
     assert.match(
-      await readFile(join(tasks, "local-project-task/TASK.md"), "utf8"),
-      /status: blocked/,
+      await readFile(join(tasks, "blocked/local-project-task/TASK.md"), "utf8"),
+      /^title:/m,
     );
     assert.equal((await fetch(`${base}/app.js`)).status, 200);
     assert.equal((await fetch(`${base}/fonts/anthropic-serif.woff2`)).status, 200);
   }, true);
+});
+
+test("legacy flat tasks are reported, subtasks are counted, and a status collision is rejected", async () => {
+  await fixture(async (base, tasks) => {
+    await task(tasks, "parent-task", "inprogress");
+    const subtasks = join(tasks, "inprogress/parent-task/subtasks");
+    await mkdir(join(subtasks, "done/first-step"), { recursive: true });
+    await mkdir(join(subtasks, "backlog/second-step"), { recursive: true });
+    await mkdir(join(tasks, "flat-task"));
+    await mkdir(join(tasks, "done/parent-task"), { recursive: true });
+    const data = await board(base);
+    assert.ok(
+      data.errors.some((error) =>
+        error.startsWith("flat-task: tasks must live in a status directory"),
+      ),
+    );
+    assert.equal((await move(base, data.token, "parent-task", "done")).status, 400);
+    await rm(join(tasks, "done/parent-task"), { recursive: true });
+
+    const counted = Schema.decodeUnknownSync(
+      Schema.Struct({
+        tasks: Schema.Array(
+          Schema.Struct({ subtasks: Schema.Struct({ total: Schema.Number, done: Schema.Number }) }),
+        ),
+      }),
+    )(await (await fetch(`${base}/api/board`)).json());
+
+    assert.deepEqual(counted.tasks[0]?.subtasks, { total: 2, done: 1 });
+    assert.equal((await move(base, data.token, "parent-task", "done")).status, 200);
+    assert.match(await readFile(join(tasks, "done/parent-task/TASK.md"), "utf8"), /^title:/m);
+  });
 });

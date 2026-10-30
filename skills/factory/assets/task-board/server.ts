@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { constants } from "node:fs";
-import { lstat, open, readdir, readFile } from "node:fs/promises";
+import { lstat, mkdir, open, readdir, readFile, rename } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
@@ -32,11 +32,10 @@ async function projectName(): Promise<string> {
   }
 }
 
-const statuses = ["ready", "in-progress", "blocked", "done"];
+const statuses = ["backlog", "inprogress", "blocked", "done"];
 
 const metadata = Schema.Struct({
   title: Schema.NonEmptyTrimmedString,
-  status: Schema.Literal("ready", "in-progress", "blocked", "done"),
   created: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
   updated: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
 });
@@ -54,13 +53,46 @@ class BoardError extends Error {
   }
 }
 
-async function taskFile(id: string, name: string): Promise<string> {
-  if (!slug.test(id)) throw new BoardError("Invalid task name.");
-  const directory = join(root, id);
-  const info = await lstat(directory);
+async function realDirectory(path: string): Promise<boolean> {
+  try {
+    const info = await lstat(path);
 
-  if (!info.isDirectory() || info.isSymbolicLink())
+    return info.isDirectory() && !info.isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+async function locate(id: string): Promise<{ status: string; directory: string }> {
+  if (!slug.test(id)) throw new BoardError("Invalid task name.");
+  const found = [];
+
+  for (const status of statuses) {
+    const directory = join(root, status, id);
+
+    if (
+      await lstat(directory).then(
+        () => true,
+        () => false,
+      )
+    )
+      found.push({ status, directory });
+  }
+
+  if (found.length > 1) throw new BoardError("Task exists in more than one status directory.");
+  const [only] = found;
+
+  if (!only || !(await realDirectory(join(root, only.status))))
+    throw new BoardError("Task not found.", 404);
+
+  if (!(await realDirectory(only.directory)))
     throw new BoardError("Task directory must be a real directory.");
+
+  return only;
+}
+
+async function taskFile(id: string, name: string): Promise<string> {
+  const { directory } = await locate(id);
   const path = join(directory, name);
   const file = await lstat(path);
 
@@ -88,34 +120,58 @@ function decodeTask(text: string) {
 
     return { data, content: parsed.content };
   } catch {
-    throw new BoardError(
-      "TASK.md requires a title, valid status, and quoted created/updated dates.",
-    );
+    throw new BoardError("TASK.md requires a title and quoted created/updated dates.");
   }
+}
+
+async function countSubtasks(directory: string): Promise<{ total: number; done: number }> {
+  const count = { total: 0, done: 0 };
+
+  for (const status of statuses) {
+    const parent = join(directory, "subtasks", status);
+
+    if (!(await realDirectory(parent))) continue;
+
+    for (const entry of await readdir(parent, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      count.total += 1;
+
+      if (status === "done") count.done += 1;
+    }
+  }
+
+  return count;
 }
 
 async function listTasks() {
   const tasks = [];
   const errors = [];
-  const entries = await readdir(root, { withFileTypes: true });
 
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-    if (
-      ["server.ts", "index.html", "anthropic-serif.woff2", "anthropic-sans.woff2"].includes(
-        entry.name,
-      )
-    )
-      continue;
-
-    if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
-
-    try {
-      const { data } = decodeTask(await readDocument(entry.name, "TASK.md"));
-      tasks.push({ id: entry.name, ...data });
-    } catch {
+  for (const entry of (await readdir(root, { withFileTypes: true })).sort((left, right) =>
+    left.name.localeCompare(right.name),
+  )) {
+    if (entry.isDirectory() && !statuses.includes(entry.name))
       errors.push(
-        `${entry.name}: unable to load task; check TASK.md metadata and regular document paths.`,
+        `${entry.name}: tasks must live in a status directory (${statuses.join(", ")}); move it to backlog/, inprogress/, blocked/ or done/.`,
       );
+  }
+
+  for (const status of statuses) {
+    if (!(await realDirectory(join(root, status)))) continue;
+    const entries = await readdir(join(root, status), { withFileTypes: true });
+
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+
+      try {
+        const { data } = decodeTask(await readDocument(entry.name, "TASK.md"));
+        const subtasks = await countSubtasks(join(root, status, entry.name));
+        tasks.push({ id: entry.name, status, subtasks, ...data });
+      } catch {
+        errors.push(
+          `${status}/${entry.name}: unable to load task; check TASK.md metadata and regular document paths.`,
+        );
+      }
     }
   }
 
@@ -138,9 +194,16 @@ async function renderDocument(id: string, name: string): Promise<string> {
   }
 }
 
-async function move(
-  request: IncomingMessage,
-): Promise<{ id: string; status: string; updated: string }> {
+type TaskSummary = {
+  id: string;
+  status: string;
+  subtasks: { total: number; done: number };
+  title: string;
+  created: string;
+  updated: string;
+};
+
+async function move(request: IncomingMessage): Promise<TaskSummary> {
   let body = "";
 
   for await (const chunk of request) {
@@ -157,6 +220,7 @@ async function move(
   const status = fields.get("status") ?? "";
 
   if (!statuses.includes(status)) throw new BoardError("Unknown task status.");
+  const current = await locate(id);
   const path = await taskFile(id, "TASK.md");
   const file = await open(path, constants.O_RDWR | constants.O_NOFOLLOW);
 
@@ -165,23 +229,39 @@ async function move(
     decodeTask(original);
     const frontmatter = /^(---\r?\n)([\s\S]*?)(\r?\n---)(?=\r?\n|$)/.exec(original);
 
-    if (
-      !frontmatter ||
-      !/^status:[^\r\n]*\r?$/m.test(frontmatter[2]) ||
-      !/^updated:[^\r\n]*\r?$/m.test(frontmatter[2])
-    )
-      throw new BoardError("Use plain status and updated frontmatter keys.");
+    if (!frontmatter || !/^updated:[^\r\n]*\r?$/m.test(frontmatter[2]))
+      throw new BoardError("Use a plain updated frontmatter key.");
 
-    const header = frontmatter[2]
-      .replace(/^status:[^\r\n]*/m, `status: ${status}`)
-      .replace(/^updated:[^\r\n]*/m, `updated: "${new Date().toISOString().slice(0, 10)}"`);
+    const target = join(root, status, id);
+
+    if (current.status !== status) {
+      if (!(await realDirectory(join(root, status))))
+        await mkdir(join(root, status), { recursive: true });
+
+      if (
+        await lstat(target).then(
+          () => true,
+          () => false,
+        )
+      )
+        throw new BoardError("A task with this name already exists in that status.", 409);
+    }
+
+    const header = frontmatter[2].replace(
+      /^updated:[^\r\n]*/m,
+      `updated: "${new Date().toISOString().slice(0, 10)}"`,
+    );
 
     const text = frontmatter[1] + header + frontmatter[3] + original.slice(frontmatter[0].length);
     decodeTask(text);
     await file.write(text, 0, "utf8");
     await file.truncate(Buffer.byteLength(text));
 
-    return { id, ...decodeTask(text).data };
+    if (current.status !== status) await rename(current.directory, target);
+
+    const subtasks = await countSubtasks(join(root, status, id));
+
+    return { id, status, subtasks, ...decodeTask(text).data };
   } finally {
     await file.close();
   }
