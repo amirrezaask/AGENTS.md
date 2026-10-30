@@ -344,18 +344,29 @@ test("registers the session budget hook once, preserving existing settings and h
     assert.equal(invoke(home).status, 0);
     const installed = readJson(settings);
     assert.equal(installed.model, "sonnet");
-    assert.deepEqual(installed.hooks.Stop, [other]);
-    assert.deepEqual(installed.hooks.PostToolUse[0], other);
-    assert.equal(installed.hooks.PostToolUse.length, 2);
     const link = join(home, ".claude", "hooks", budgetHook);
     assert.equal(readlinkSync(link), join(root, "tools", budgetHook));
-    assert.ok(installed.hooks.PostToolUse[1].hooks[0].command.includes(link));
+
+    for (const event of ["PostToolUse", "Stop"]) {
+      assert.deepEqual(installed.hooks[event][0], other);
+      assert.equal(installed.hooks[event].length, 2);
+    }
+
+    for (const event of ["SessionStart", "PreToolUse", "PostToolUse", "Stop"]) {
+      const ours = installed.hooks[event].at(-1);
+      assert.ok(ours.hooks[0].command.includes(link));
+    }
+
+    assert.equal(installed.hooks.PostToolUse[1].matcher, "*");
+    assert.match(installed.hooks.PreToolUse[0].matcher, /AskUserQuestion/);
+    assert.equal(installed.hooks.Stop[1].matcher, undefined);
 
     const before = readFileSync(settings, "utf8");
     assert.equal(invoke(home).status, 0);
     assert.equal(readFileSync(settings, "utf8"), before);
 
     installed.hooks.PostToolUse[1].hooks[0].command = `old ${budgetHook}`;
+    installed.hooks.PreToolUse[0].matcher = "*";
     writeFileSync(settings, JSON.stringify(installed));
     assert.equal(invoke(home).status, 0);
     assert.equal(readFileSync(settings, "utf8"), before);
@@ -373,35 +384,253 @@ test("unparseable settings.json fails before any home mutation", () =>
     assert.equal(existsSync(join(home, ".claude", "hooks")), false);
   }));
 
-test("session budget hook warns once at the soft limit and on every call past the hard limit", () =>
+interface ToolArgs {
+  recap?: string;
+  ask?: string;
+  initiation?: string;
+  file_path?: string;
+}
+
+interface HookPayload {
+  hook_event_name?: string;
+  transcript_path?: string;
+  tool_name?: string;
+  tool_input?: ToolArgs;
+  tool_use_id?: string;
+  agent_id?: string;
+  source?: string;
+  stop_hook_active?: boolean;
+  last_assistant_message?: string;
+}
+
+interface HookEnv {
+  SESSION_AUTONOMY?: string;
+}
+
+interface RecordFlags {
+  isSidechain?: boolean;
+}
+
+// Synthetic transcript records in Claude Code's JSONL shape.
+const readCall = (filePath: string) =>
+  JSON.stringify({
+    type: "assistant",
+    isSidechain: false,
+    message: {
+      content: [{ type: "tool_use", id: "t1", name: "Read", input: { file_path: filePath } }],
+    },
+  });
+
+const usage = (tokens: number, extra: RecordFlags = {}) =>
+  JSON.stringify({
+    type: "assistant",
+    message: {
+      content: [{ type: "text", text: "working" }],
+      usage: {
+        input_tokens: 4,
+        cache_creation_input_tokens: 996,
+        cache_read_input_tokens: tokens - 1000,
+      },
+    },
+    ...extra,
+  });
+
+const toolUse = (name: string, id: string, messageId: string) =>
+  JSON.stringify({
+    type: "assistant",
+    message: { id: messageId, content: [{ type: "tool_use", id, name, input: {} }] },
+  });
+
+function hookSession(
+  run: (hook: (input: HookPayload, env?: HookEnv) => string, home: string) => void,
+) {
   isolated((home) => {
-    const transcript = join(home, "transcript.jsonl");
-    const sessionId = `budget-test-${process.pid}`;
+    const sessionId = `hook-test-${process.pid}-${Math.random().toString(36).slice(2)}`;
 
-    const run = (lines: number, extra: { agent_id?: string; transcript_path?: string } = {}) => {
-      writeFileSync(transcript, "{}\n".repeat(lines));
-
-      return spawnSync(process.execPath, [join(root, "tools", budgetHook)], {
-        env: { ...process.env, SESSION_BUDGET_WARN: "5", SESSION_BUDGET_HARD: "8" },
-        input: JSON.stringify({ session_id: sessionId, transcript_path: transcript, ...extra }),
+    const hook = (input: HookPayload, env: HookEnv = {}) => {
+      const result = spawnSync(process.execPath, [join(root, "tools", budgetHook)], {
+        env: {
+          ...process.env,
+          SESSION_BUDGET_WARN: "400000",
+          SESSION_BUDGET_HARD: "700000",
+          ...env,
+        },
+        input: JSON.stringify({ session_id: sessionId, cwd: home, ...input }),
         encoding: "utf8",
       });
+
+      assert.equal(result.status, 0, result.stderr);
+
+      return result.stdout;
     };
 
     try {
-      assert.equal(run(4).stdout, "");
-      const warned = run(5);
-      assert.equal(warned.status, 0);
-      const output = JSON.parse(warned.stdout).hookSpecificOutput;
-      assert.equal(output.hookEventName, "PostToolUse");
-      assert.match(output.additionalContext, /5 messages \(limit 5\)/);
-      assert.match(output.additionalContext, /start_session/);
-      assert.equal(run(6).stdout, "");
-      assert.match(run(8).stdout, /limit 8/);
-      assert.match(run(9).stdout, /limit 8/);
-      assert.equal(run(9, { agent_id: "sub" }).stdout, "");
-      assert.equal(run(9, { transcript_path: join(home, "missing") }).stdout, "");
+      run(hook, home);
     } finally {
-      rmSync(join(tmpdir(), `session-budget-${sessionId.replace(/\W/g, "_")}`), { force: true });
+      rmSync(join(tmpdir(), `session-hooks-${sessionId.replace(/\W/g, "_")}.json`), {
+        force: true,
+      });
     }
+  });
+}
+
+test("PostToolUse budget uses context tokens, not transcript lines", () =>
+  hookSession((hook, home) => {
+    const transcript = join(home, "t.jsonl");
+
+    const post = (extra: HookPayload = {}) =>
+      hook({ hook_event_name: "PostToolUse", transcript_path: transcript, ...extra });
+
+    writeFileSync(transcript, `${'{"type":"queue-operation"}\n'.repeat(5000)}${usage(150_000)}\n`);
+    assert.equal(post(), "");
+
+    writeFileSync(
+      transcript,
+      `${usage(410_000)}\n${usage(900_000, { isSidechain: true })}\n${'{"type":"attachment"}\n'.repeat(10)}`,
+    );
+    const soft = JSON.parse(post()).hookSpecificOutput;
+    assert.equal(soft.hookEventName, "PostToolUse");
+    assert.match(soft.additionalContext, /410k tokens/);
+    assert.match(soft.additionalContext, /do not start a session/);
+    assert.equal(post(), "");
+
+    writeFileSync(transcript, `${usage(720_000)}\n`);
+    assert.match(post(), /exactly one session.*list_sessions|list_sessions.*exactly one session/);
+    writeFileSync(transcript, `${usage(780_000)}\n`);
+    assert.equal(post(), "");
+    writeFileSync(transcript, `${usage(830_000)}\n`);
+    assert.match(post(), /830k tokens/);
+
+    assert.equal(post({ agent_id: "sub" }), "");
+    assert.equal(post({ transcript_path: join(home, "missing") }), "");
+  }));
+
+test("PreToolUse denies questions to ADMIN and unchecked or forked sessions", () =>
+  hookSession((hook, home) => {
+    const transcript = join(home, "t.jsonl");
+
+    const pre = (tool_name: string, tool_input: ToolArgs = {}, extra: HookPayload = {}) =>
+      hook({
+        hook_event_name: "PreToolUse",
+        transcript_path: transcript,
+        tool_name,
+        tool_input,
+        tool_use_id: "toolu_now",
+        ...extra,
+      });
+
+    const denied = (output: string) =>
+      JSON.parse(output).hookSpecificOutput.permissionDecision === "deny";
+
+    writeFileSync(transcript, "");
+    assert.ok(denied(pre("AskUserQuestion")));
+    assert.ok(denied(pre("mcp__ccd_turn__wrap_up", { recap: "r", ask: "Start it?" })));
+    assert.equal(pre("mcp__ccd_turn__wrap_up", { recap: "r" }), "");
+    assert.ok(denied(pre("mcp__ccd_session__hand_off_to_session")));
+    assert.ok(denied(pre("mcp__ccd_session__start_session", { initiation: "offer" })));
+
+    const start = "mcp__ccd_session__start_session";
+    const list = "mcp__ccd_session_mgmt__list_sessions";
+    assert.ok(denied(pre(start, { initiation: "user_asked" })));
+
+    writeFileSync(
+      transcript,
+      `${toolUse(list, "toolu_l1", "m1")}\n${toolUse(start, "toolu_now", "m2")}\n`,
+    );
+    assert.equal(pre(start, { initiation: "user_asked" }), "");
+
+    writeFileSync(
+      transcript,
+      [
+        toolUse(list, "toolu_l1", "m1"),
+        toolUse(start, "toolu_s1", "m2"),
+        toolUse(start, "toolu_now", "m2"),
+      ].join("\n"),
+    );
+    assert.equal(pre(start), "", "sibling calls after one list_sessions are allowed");
+
+    writeFileSync(
+      transcript,
+      [
+        toolUse(list, "toolu_l1", "m1"),
+        toolUse(start, "toolu_s1", "m2"),
+        toolUse(start, "toolu_now", "m3"),
+      ].join("\n"),
+    );
+    assert.ok(denied(pre(start)), "a later start needs a fresh list_sessions");
+
+    assert.equal(pre(start, {}, { agent_id: "sub" }), "");
+    assert.ok(denied(pre("AskUserQuestion", {}, { agent_id: "sub" })));
+    assert.equal(
+      hook(
+        { hook_event_name: "PreToolUse", tool_name: "AskUserQuestion" },
+        { SESSION_AUTONOMY: "off" },
+      ),
+      "",
+    );
+  }));
+
+test("Stop blocks questions to ADMIN while a touched task is in progress, with a loop guard", () =>
+  hookSession((hook, home) => {
+    const task = join(
+      home,
+      "docs",
+      "tasks",
+      "inprogress",
+      "epic",
+      "subtasks",
+      "inprogress",
+      "leaf",
+    );
+
+    mkdirSync(task, { recursive: true });
+    writeFileSync(join(task, "TASK.md"), "## Blocker\nNone\n");
+    const transcript = join(home, "t.jsonl");
+    const read = readCall(join(task, "PLAN.md"));
+    writeFileSync(transcript, `${read}\n`);
+
+    const stop = (last_assistant_message: string, extra: HookPayload = {}) =>
+      hook({
+        hook_event_name: "Stop",
+        transcript_path: transcript,
+        last_assistant_message,
+        ...extra,
+      });
+
+    assert.equal(stop("Committed M3. Next I start M4."), "");
+    const blocked = JSON.parse(stop("M3 is done.\n\nStart the continuation session?"));
+    assert.equal(blocked.decision, "block");
+    assert.match(blocked.reason, /docs\/tasks\/inprogress\/epic\/subtasks\/inprogress\/leaf/);
+    assert.equal(
+      stop("Waiting on you for the branch name.", { stop_hook_active: true }),
+      "",
+      "no work since block",
+    );
+
+    writeFileSync(transcript, `${read}\n${read}\n`);
+    assert.match(stop("Should I keep going?", { stop_hook_active: true }), /"block"/);
+
+    writeFileSync(join(task, "TASK.md"), "## Blocker\nBRIEF R2 conflicts with the engine API.\n");
+    assert.equal(stop("Which option do you want?"), "", "an escalated task may end");
+
+    writeFileSync(join(task, "TASK.md"), "## Blocker\nNone\n");
+    rmSync(join(home, "docs"), { recursive: true });
+    assert.equal(stop("Anything else?"), "", "a finished or moved task may end");
+  }));
+
+test("SessionStart lists in-progress leaf tasks and re-grounds after compaction", () =>
+  hookSession((hook, home) => {
+    assert.equal(hook({ hook_event_name: "SessionStart", source: "startup" }), "");
+    mkdirSync(join(home, "docs", "tasks", "inprogress", "epic", "subtasks", "inprogress", "leaf"), {
+      recursive: true,
+    });
+
+    const start = JSON.parse(
+      hook({ hook_event_name: "SessionStart", source: "startup" }),
+    ).hookSpecificOutput;
+
+    assert.equal(start.hookEventName, "SessionStart");
+    assert.match(start.additionalContext, /list_sessions/);
+    assert.match(start.additionalContext, /epic\/subtasks\/inprogress\/leaf\./);
+    assert.match(hook({ hook_event_name: "SessionStart", source: "compact" }), /re-read the task/);
   }));

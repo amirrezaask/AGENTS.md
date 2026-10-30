@@ -86,23 +86,45 @@ function readSettings(path: string): Settings {
   }
 }
 
-// Registers the session budget hook once. A rerun only rewrites our own entry
+// One script serves every session hook event; it dispatches on hook_event_name.
+// PreToolUse only needs the tools it governs, so other tool calls skip the process.
+const budgetHookEvents: [string, string | undefined][] = [
+  ["SessionStart", undefined],
+  [
+    "PreToolUse",
+    "AskUserQuestion|mcp__ccd_turn__wrap_up|mcp__ccd_session__start_session|mcp__ccd_session__hand_off_to_session",
+  ],
+  ["PostToolUse", "*"],
+  ["Stop", undefined],
+];
+
+// Registers the session hook once per event. A rerun only rewrites our own entry
 // (found by script name), so other hooks in settings.json are never touched.
 function registerBudgetHook(path: string, settings: Settings, command: string, write: boolean) {
-  const groups = ((settings.hooks ??= {}).PostToolUse ??= []);
+  let changed = false;
 
-  const known = groups
-    .flatMap((group) => group.hooks ?? [])
-    .find((hook) => hook.command?.includes(budgetHook));
+  for (const [event, matcher] of budgetHookEvents) {
+    const groups = ((settings.hooks ??= {})[event] ??= []);
 
-  if (known?.command === command) return;
+    const group = groups.find((entry) =>
+      entry.hooks?.some((hook) => hook.command?.includes(budgetHook)),
+    );
 
-  console.log(`${known ? "update" : "add"} PostToolUse hook in ${path}`);
+    const known = group?.hooks?.find((hook) => hook.command?.includes(budgetHook));
 
-  if (known) known.command = command;
-  else groups.push({ matcher: "*", hooks: [{ type: "command", command, timeout: 10 }] });
+    if (group && known?.command === command && group.matcher === matcher) continue;
 
-  if (write) writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`);
+    console.log(`${known ? "update" : "add"} ${event} hook in ${path}`);
+
+    changed = true;
+
+    if (group && known) {
+      known.command = command;
+      group.matcher = matcher;
+    } else groups.push({ matcher, hooks: [{ type: "command", command, timeout: 10 }] });
+  }
+
+  if (changed && write) writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`);
 }
 
 function main(): void {
