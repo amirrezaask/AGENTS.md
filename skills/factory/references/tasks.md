@@ -42,26 +42,33 @@ count covers every descendant at all depths.
 
 ## Install in a consuming project
 
-Install on the first Factory task unless a board already exists or ADMIN requests
-documents only. Use the project's package manager; preserve compatible existing
-dependencies and unrelated scripts. Ask before replacing incompatible constraints.
+1. Run the installer shipped with the skill from the project root. It copies
+   `server.ts`, `index.html` and the two Anthropic fonts into `docs/tasks/`
+   (the requested board location is an exception to the tools convention), adds
+   the `factory:board` script and the dependencies below to package.json without
+   touching unrelated entries or existing compatible versions, and runs the
+   project's package manager (npm, pnpm, yarn or bun by lockfile) to update its
+   lockfile. Re-running updates the copied assets.
 
-1. Copy [server.ts](../assets/task-board/server.ts) and
-   [index.html](../assets/task-board/index.html) beside each other in `docs/tasks/`.
-   Copy `anthropic-serif.woff2` and `anthropic-sans.woff2` beside them too. The
-   requested board location is an exception to the general tools convention.
-2. Add the dependencies below to the consuming project's package.json and update
-   its lockfile with its package manager. All browser/compiler dependencies are
-   local; the server never downloads code or fonts when starting.
-3. Require Node.js 24+ and add `factory:board: node docs/tasks/server.ts`. Choose
-   another script name if that name already belongs to unrelated functionality.
-4. Run relevant project checks and smoke-test the copied app, document tabs,
+   ```sh
+   node <skill-dir>/assets/task-board/install-board.ts [project-dir] [--link] [--no-install] [--dry-run]
+   ```
+
+   `--link` symlinks the assets instead of copying them, for a project that
+   consumes this library directly. An existing unrelated `factory:board` script
+   stops the install; rename it first.
+2. Require Node.js 24+. All browser/compiler dependencies are local; the server
+   never downloads code or fonts when starting.
+3. Run relevant project checks and smoke-test the copied app, document tabs,
    and status persistence against disposable task data. Remove test data after.
-5. Start with `npm run factory:board` or the project's equivalent. It binds to
+4. Start with `npm run factory:board` or the project's equivalent. It binds to
    `127.0.0.1:4310`, configurable with PORT. Report the URL and stop instructions.
    Leave a preview running only when ADMIN asks to use it.
 
-For npm, these package ranges/versions cover the tested application:
+Run the installer on the first Factory task in a project unless a board already
+exists or ADMIN requests documents only.
+
+The installer applies these ranges (listed for manual installs with npm):
 
 ```sh
 npm install effect@3.22.4 marked@17 gray-matter@4 sanitize-html@2 react@19 react-dom@19 @radix-ui/react-dialog@1 @radix-ui/react-tabs@1 @radix-ui/react-slot@1 class-variance-authority@0.7 clsx@2 tailwind-merge@3 lucide-react@1 esbuild@0.28 tailwindcss@4.1.18 @tailwindcss/oxide@4.1.18
