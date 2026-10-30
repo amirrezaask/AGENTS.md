@@ -1,3 +1,4 @@
+import type { AddressInfo } from "node:net";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { constants } from "node:fs";
 import { lstat, mkdir, open, readdir, readFile, rename } from "node:fs/promises";
@@ -42,7 +43,9 @@ const metadata = Schema.Struct({
   updated: Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)),
 });
 
-const port = Number(process.env.PORT ?? 4310);
+// Port 0 asks the OS for any free port; the real port is known once the server is listening.
+const requestedPort = Number(process.env.PORT ?? 0);
+let port = requestedPort;
 const token = randomBytes(32).toString("hex");
 const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -453,8 +456,8 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   } else throw new BoardError("Page not found.", 404);
 }
 
-if (!Number.isInteger(port) || port < 1 || port > 65535)
-  throw new BoardError("PORT must be between 1 and 65535.");
+if (!Number.isInteger(requestedPort) || requestedPort < 0 || requestedPort > 65535)
+  throw new BoardError("PORT must be between 0 and 65535.");
 
 const server = createServer((request, response) => {
   void Effect.runPromise(
@@ -483,6 +486,10 @@ server.on("error", (error) => {
   process.exitCode = 1;
 });
 
-server.listen(port, "127.0.0.1", () => {
+server.listen(requestedPort, "127.0.0.1", () => {
+  // SAFETY: a server listening on a TCP host and port reports an AddressInfo, never a pipe path.
+  const bound = server.address() as AddressInfo;
+
+  port = bound.port;
   console.log(`Factory board: http://127.0.0.1:${port}`);
 });

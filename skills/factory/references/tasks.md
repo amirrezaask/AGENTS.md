@@ -62,7 +62,7 @@ count covers every descendant at all depths.
 3. Run relevant project checks and smoke-test the copied app, document tabs,
    and status persistence against disposable task data. Remove test data after.
 4. Start with `npm run factory:board` or the project's equivalent. It binds to
-   `127.0.0.1:4310`, configurable with PORT. Report the URL and stop instructions.
+   `127.0.0.1` on any free port (reported at startup), configurable with PORT. Report the URL and stop instructions.
    Leave a preview running only when ADMIN asks to use it.
 
 Run the installer on the first Factory task in a project unless a board already
