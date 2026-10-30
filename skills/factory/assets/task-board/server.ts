@@ -1,4 +1,5 @@
 import type { AddressInfo } from "node:net";
+import { execFile, type ChildProcess } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { constants, watch, type FSWatcher } from "node:fs";
 import { lstat, mkdir, open, readdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -93,6 +94,54 @@ async function listProjects() {
       path,
     })),
   );
+}
+
+type Picked = { path: string } | { cancelled: true } | { unsupported: true };
+
+let picking: ChildProcess | undefined;
+
+// Browsers never expose absolute paths, so the host's own folder chooser runs on this machine.
+function chooser(command: string, args: string[]): Promise<Picked | "missing"> {
+  return new Promise((done) => {
+    picking = execFile(command, args, { timeout: 300000 }, (error, stdout, stderr) => {
+      picking = undefined;
+
+      if (!error) {
+        const path = stdout.trim().replace(/(.)\/+$/, "$1");
+
+        return done(path ? { path } : { cancelled: true });
+      }
+
+      if ("code" in error && error.code === "ENOENT") return done("missing");
+
+      // osascript reports Cancel as error -128 and a denied Automation prompt as -1743.
+      if (error.killed || /-128|User canceled/.test(stderr) || (error.code === 1 && !stderr))
+        return done({ cancelled: true });
+      done({ unsupported: true });
+    });
+  });
+}
+
+async function pickFolder(): Promise<Picked> {
+  if (process.platform === "darwin") {
+    const result = await chooser("osascript", [
+      "-e",
+      "tell me to activate",
+      "-e",
+      'POSIX path of (choose folder with prompt "Choose a project folder")',
+    ]);
+
+    return result === "missing" ? { unsupported: true } : result;
+  }
+
+  if (process.platform !== "linux" || !(process.env.DISPLAY || process.env.WAYLAND_DISPLAY))
+    return { unsupported: true };
+  const zenity = await chooser("zenity", ["--file-selection", "--directory"]);
+
+  if (zenity !== "missing") return zenity;
+  const kdialog = await chooser("kdialog", ["--getexistingdirectory", homedir()]);
+
+  return kdialog === "missing" ? { unsupported: true } : kdialog;
 }
 
 const statuses = ["backlog", "inprogress", "blocked", "done"];
@@ -535,6 +584,13 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   if (request.method === "GET" && url.pathname === "/app.js") {
     response.setHeader("Content-Type", "text/javascript; charset=utf-8");
     response.end(assets.javascript);
+  } else if (request.method === "GET" && url.pathname === "/theme.js") {
+    // Runs before first paint so a remembered theme never flashes; inline scripts are blocked by CSP.
+    response.setHeader("Content-Type", "text/javascript; charset=utf-8");
+
+    response.end(
+      'try{const t=localStorage.getItem("factory-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}',
+    );
   } else if (request.method === "GET" && url.pathname === "/app.css") {
     response.setHeader("Content-Type", "text/css; charset=utf-8");
     response.end(assets.css);
@@ -574,7 +630,20 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     const fields = await formFields(request, address);
     const action = url.pathname.slice("/api/projects/".length);
 
-    if (action === "add") {
+    if (action === "pick") {
+      if (picking) throw new BoardError("A folder dialog is already open.", 409);
+      // A closed tab must not leave a dialog open on the host.
+      response.on("close", () => {
+        if (!response.writableFinished) picking?.kill();
+      });
+
+      const picked = await pickFolder();
+
+      if ("path" in picked) {
+        const path = await addProject(picked.path);
+        json(response, { id: projectId(path), projects: await listProjects() });
+      } else json(response, picked);
+    } else if (action === "add") {
       const path = await addProject(fields.get("path") ?? "");
       json(response, { id: projectId(path), projects: await listProjects() });
     } else if (action === "remove") {

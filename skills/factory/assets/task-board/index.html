@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Project tasks</title>
+  <meta name="color-scheme" content="light dark" />
+  <script src="/theme.js"></script>
   <link rel="stylesheet" href="/app.css" />
   <script src="/app.js" defer></script>
   <style type="text/tailwindcss">
@@ -20,7 +22,32 @@
       --st-progress:#c15f3c; --st-progress-ink:#9b4a32; --st-progress-bg:#f6e7df;
       --st-blocked:#b7791f;  --st-blocked-ink:#80530f;  --st-blocked-bg:#f6ecd9;
       --st-done:#5b7a4a;     --st-done-ink:#45603a;     --st-done-bg:#e7eddf;
+      --shadow-rgb:20 20 19; --overlay:rgb(20 20 19/.4); --selection:#ecd5c8; color-scheme:light;
       --ease:cubic-bezier(.165,.84,.44,1);
+    }
+    @media (prefers-color-scheme: dark){ :root:not([data-theme=light]){
+      --background:#1f1e1d; --surface-sunken:#191817; --card:#2a2927;
+      --foreground:#f0eee6; --muted:#302e2b; --muted-foreground:#a8a59b; --faint:#77756e;
+      --border:#363431; --border-strong:#4a4844;
+      --primary:#f0eee6; --primary-foreground:#1f1e1d; --accent:#302e2b; --accent-foreground:#f0eee6;
+      --clay:#d97757; --clay-ink:#e8a083; --clay-tint:#3a2a23; --ring:#d97757;
+      --st-backlog:#8f8c84; --st-backlog-ink:#b5b2a8; --st-backlog-bg:#2e2d2a;
+      --st-progress:#d97757; --st-progress-ink:#e8a083; --st-progress-bg:#3a2a23;
+      --st-blocked:#d4a24c;  --st-blocked-ink:#e6c07a;  --st-blocked-bg:#352c1c;
+      --st-done:#8fae7a;     --st-done-ink:#b0c99f;     --st-done-bg:#26301f;
+      --shadow-rgb:0 0 0; --overlay:rgb(0 0 0/.6); --selection:#4a3328; color-scheme:dark;
+    } }
+    :root[data-theme=dark]{
+      --background:#1f1e1d; --surface-sunken:#191817; --card:#2a2927;
+      --foreground:#f0eee6; --muted:#302e2b; --muted-foreground:#a8a59b; --faint:#77756e;
+      --border:#363431; --border-strong:#4a4844;
+      --primary:#f0eee6; --primary-foreground:#1f1e1d; --accent:#302e2b; --accent-foreground:#f0eee6;
+      --clay:#d97757; --clay-ink:#e8a083; --clay-tint:#3a2a23; --ring:#d97757;
+      --st-backlog:#8f8c84; --st-backlog-ink:#b5b2a8; --st-backlog-bg:#2e2d2a;
+      --st-progress:#d97757; --st-progress-ink:#e8a083; --st-progress-bg:#3a2a23;
+      --st-blocked:#d4a24c;  --st-blocked-ink:#e6c07a;  --st-blocked-bg:#352c1c;
+      --st-done:#8fae7a;     --st-done-ink:#b0c99f;     --st-done-bg:#26301f;
+      --shadow-rgb:0 0 0; --overlay:rgb(0 0 0/.6); --selection:#4a3328; color-scheme:dark;
     }
     @theme inline{
       --color-background:var(--background); --color-sunken:var(--surface-sunken); --color-card:var(--card);
@@ -36,10 +63,10 @@
       --font-sans:"Anthropic Sans",system-ui,sans-serif; --font-serif:"Anthropic Serif",Georgia,serif;
       --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
       --radius-sm:6px; --radius-md:8px; --radius-lg:12px; --radius-xl:16px; --radius-2xl:20px;
-      --shadow-card:0 1px 2px rgb(20 20 19/.04);
-      --shadow-lift:0 1px 2px rgb(20 20 19/.04),0 6px 16px -4px rgb(20 20 19/.08);
-      --shadow-drag:0 12px 32px -8px rgb(20 20 19/.18);
-      --shadow-dialog:0 32px 80px -16px rgb(20 20 19/.28),0 0 0 1px rgb(20 20 19/.04);
+      --shadow-card:0 1px 2px rgb(var(--shadow-rgb)/.06);
+      --shadow-lift:0 1px 2px rgb(var(--shadow-rgb)/.06),0 6px 16px -4px rgb(var(--shadow-rgb)/.14);
+      --shadow-drag:0 12px 32px -8px rgb(var(--shadow-rgb)/.3);
+      --shadow-dialog:0 32px 80px -16px rgb(var(--shadow-rgb)/.4),0 0 0 1px rgb(var(--shadow-rgb)/.06);
       --text-display:clamp(32px,4vw,44px); --text-display--line-height:1.1;
       --text-title:28px; --text-title--line-height:1.2;
       --text-body:15px;  --text-body--line-height:1.5;
@@ -47,7 +74,7 @@
       --text-micro:12px; --text-micro--line-height:1.3;
     }
     body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-sans);font-size:15px;-webkit-font-smoothing:antialiased}
-    ::selection{background:#ecd5c8}
+    ::selection{background:var(--selection)}
     :focus-visible{outline:2px solid var(--ring);outline-offset:3px;border-radius:var(--radius-md)}
     .reader{overflow-wrap:anywhere;font-size:16px;line-height:1.7;color:var(--foreground)}
     .reader>*{max-width:72ch}
@@ -100,10 +127,17 @@ import { twMerge } from "tailwind-merge";
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
   ChevronRight,
+  ChevronsUpDown,
   CircleAlert,
+  FolderPlus,
   GripVertical,
   ListTree,
+  LoaderCircle,
+  Monitor,
+  Moon,
+  Sun,
   X,
 } from "lucide-react";
 import { Schema } from "effect";
@@ -168,10 +202,10 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-40 bg-[#141413]/40 backdrop-blur-[2px]" />
+      <DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-40 bg-[var(--overlay)] backdrop-blur-[2px]" />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        className="dialog-content fixed top-1/2 left-1/2 z-50 flex h-[90dvh] w-[80vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-dialog focus:outline-none"
+        className="dialog-content fixed top-1/2 left-1/2 z-50 flex h-[90dvh] w-[80vw] max-w-[1100px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-dialog focus:outline-none max-md:h-dvh max-md:w-screen max-md:max-w-none max-md:rounded-none"
         {...props}
       >
         {children}
@@ -356,7 +390,7 @@ function StatusIcon({ status, className }: { status: Status; className?: string 
       <path
         d="m4.5 7.1 1.7 1.7 3.3-3.4"
         fill="none"
-        stroke="#fff"
+        stroke="var(--card)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -982,6 +1016,293 @@ function TaskReader({
   );
 }
 
+type Theme = "system" | "light" | "dark";
+
+function readTheme(): Theme {
+  try {
+    const stored = localStorage.getItem("factory-theme");
+
+    return stored === "light" || stored === "dark" ? stored : "system";
+  } catch {
+    return "system";
+  }
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = React.useState<Theme>(readTheme);
+  const order: Theme[] = ["system", "light", "dark"];
+  const next = order[(order.indexOf(theme) + 1) % order.length];
+  const icons = { system: Monitor, light: Sun, dark: Moon };
+  const Icon = icons[theme];
+
+  function choose(value: Theme) {
+    setTheme(value);
+
+    try {
+      if (value === "system") localStorage.removeItem("factory-theme");
+      else localStorage.setItem("factory-theme", value);
+    } catch {
+      // The choice still applies to this page load.
+    }
+
+    if (value === "system") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = value;
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={`Theme: ${theme}. Switch to ${next}.`}
+      title={`Theme: ${theme}`}
+      onClick={() => choose(next)}
+    >
+      <Icon />
+    </Button>
+  );
+}
+
+// Display only: the home prefix collapses to ~ and long middles are elided.
+function shortPath(path: string) {
+  const home = path.replace(/^(\/Users|\/home)\/[^/]+/, "~");
+  const parts = home.split("/");
+
+  return parts.length > 4 ? [parts[0], parts[1], "…", ...parts.slice(-2)].join("/") : home;
+}
+
+function ProjectMenu({
+  board,
+  picking,
+  onSelect,
+  onRemove,
+  onPick,
+  onCancelPick,
+  onAddPath,
+}: {
+  board: Board;
+  picking: boolean;
+  onSelect: (id: string) => void;
+  onRemove: (id: string) => void;
+  onPick: () => void;
+  onCancelPick: () => void;
+  onAddPath: (path: string) => Promise<string>;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [confirming, setConfirming] = React.useState("");
+  const [typing, setTyping] = React.useState(false);
+  const [path, setPath] = React.useState("");
+  const [problem, setProblem] = React.useState("");
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const current = board.projects.find((project) => project.id === board.projectId);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const away = (event: MouseEvent) => {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+    };
+
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", escape);
+
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Switch project, current: ${current?.name ?? "none"}`}
+        onClick={() => setOpen(!open)}
+        className="-ml-2 flex max-w-[60vw] items-center gap-3 rounded-lg px-2 py-1 text-left transition-colors duration-150 hover:bg-muted"
+      >
+        <span className="min-w-0">
+          <span className="block truncate font-serif text-xl leading-tight">
+            {current?.name ?? "Factory"}
+          </span>
+          {current ? (
+            <span
+              className="block truncate font-mono text-micro text-muted-foreground"
+              title={current.path}
+            >
+              {shortPath(current.path)}
+            </span>
+          ) : null}
+        </span>
+        <ChevronsUpDown className="size-4 shrink-0 text-faint" aria-hidden />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Projects"
+          className="absolute top-full left-0 z-40 mt-2 w-[min(360px,90vw)] overflow-hidden rounded-xl border border-border bg-card shadow-dialog"
+        >
+          <ul className="max-h-72 overflow-y-auto p-1.5">
+            {board.projects.map((project) => (
+              <li key={project.id} className="group/row relative">
+                {confirming === project.id ? (
+                  <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-meta">
+                    <span className="min-w-0 flex-1">
+                      Stop watching {project.name}? Files on disk are untouched.
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setConfirming("");
+                        onRemove(project.id);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirming("")}>
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={project.id === board.projectId}
+                      onClick={() => {
+                        setOpen(false);
+                        onSelect(project.id);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 pr-10 text-left transition-colors duration-150 hover:bg-muted"
+                    >
+                      <Check
+                        className={cn(
+                          "size-4 shrink-0 text-clay",
+                          project.id !== board.projectId && "invisible",
+                        )}
+                        aria-hidden
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-body">{project.name}</span>
+                        <span
+                          className="block truncate font-mono text-micro text-muted-foreground"
+                          title={project.path}
+                        >
+                          {shortPath(project.path)}
+                        </span>
+                      </span>
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="iconSm"
+                      aria-label={`Stop watching ${project.name}`}
+                      className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                      onClick={() => setConfirming(project.id)}
+                    >
+                      <X />
+                    </Button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="border-t border-border p-2">
+            {picking ? (
+              <div className="flex items-center gap-2 px-2 py-1.5 text-meta text-muted-foreground">
+                <LoaderCircle className="size-4 animate-spin" aria-hidden />
+                <span className="flex-1">Waiting for folder…</span>
+                <Button size="sm" variant="ghost" onClick={onCancelPick}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button variant="ghost" className="w-full justify-start" onClick={onPick}>
+                <FolderPlus /> Add project…
+              </Button>
+            )}
+            {typing ? (
+              <form
+                className="px-2 pt-1 pb-1"
+                onSubmit={(event) => {
+                  event.preventDefault();
+
+                  void onAddPath(path).then((message) => {
+                    setProblem(message);
+
+                    if (!message) {
+                      setPath("");
+                      setTyping(false);
+                      setOpen(false);
+                    }
+                  });
+                }}
+              >
+                <input
+                  autoFocus
+                  aria-label="Project directory"
+                  placeholder="/path/to/project"
+                  value={path}
+                  onChange={(event) => setPath(event.target.value)}
+                  className="h-9 w-full rounded-lg border border-border bg-background px-2.5 font-mono text-meta"
+                />
+                {problem ? <p className="pt-1.5 text-micro text-clay-ink">{problem}</p> : null}
+              </form>
+            ) : (
+              <button
+                type="button"
+                className="px-3 py-1 text-micro text-muted-foreground underline-offset-2 hover:underline"
+                onClick={() => setTyping(true)}
+              >
+                Enter a path
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyProjects({
+  picking,
+  onPick,
+  onCancelPick,
+}: {
+  picking: boolean;
+  onPick: () => void;
+  onCancelPick: () => void;
+}) {
+  return (
+    <section className="mx-auto mt-16 max-w-md rounded-2xl bg-sunken p-10 text-center">
+      <h2 className="font-serif text-title font-normal">Watch a project</h2>
+      <p className="mt-3 text-muted-foreground">
+        Factory reads <code className="font-mono text-meta">docs/tasks/</code> from any folder you
+        add.
+      </p>
+      <div className="mt-6 flex justify-center">
+        {picking ? (
+          <Button variant="outline" onClick={onCancelPick}>
+            <LoaderCircle className="animate-spin" /> Waiting for folder… Cancel
+          </Button>
+        ) : (
+          <Button onClick={onPick}>
+            <FolderPlus /> Choose folder…
+          </Button>
+        )}
+      </div>
+      <p className="mt-5 font-mono text-micro text-faint">npx amirreza-factory &lt;dir&gt;</p>
+    </section>
+  );
+}
+
 function App() {
   const [board, setBoard] = React.useState<Board | null>(null);
   const [error, setError] = React.useState("");
@@ -994,7 +1315,8 @@ function App() {
   const pickedRef = React.useRef<Picked | null>(null);
   const [liveKey, setLiveKey] = React.useState(0);
   const [projectId, setProjectId] = React.useState(activeProject);
-  const [newPath, setNewPath] = React.useState("");
+  const [picking, setPicking] = React.useState(false);
+  const pickAbort = React.useRef<AbortController | null>(null);
 
   function selectProject(id: string) {
     activeProject = id;
@@ -1005,32 +1327,63 @@ function App() {
       // Selection still works for this page load without storage.
     }
 
-    setBoard(null);
     setSelected(null);
     setProjectId(id);
   }
 
-  async function changeProjects(operation: "add" | "remove", fields: Record<string, string>) {
-    if (!board) return;
+  const form = (fields: Record<string, string>) => ({
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: board?.token ?? "", ...fields }),
+  });
+
+  async function removeProject(id: string) {
+    try {
+      const result = await request("/api/projects/remove", form({ id }));
+      selectProject(id === board?.projectId ? (result.projects[0]?.id ?? "") : activeProject);
+      setLiveKey((key) => key + 1);
+    } catch {
+      setError("Could not remove the project. Reload and try again.");
+    }
+  }
+
+  // Resolves to a problem message, or "" when the project was added.
+  async function addPath(path: string): Promise<string> {
+    try {
+      const result = await request("/api/projects/add", form({ path }));
+      selectProject(result.id);
+      setAnnouncement("Project added.");
+
+      return "";
+    } catch {
+      return "Could not add that folder. Enter the path of an existing directory.";
+    }
+  }
+
+  async function pickFolder() {
+    if (picking || !board) return;
+    const controller = new AbortController();
+    pickAbort.current = controller;
+    setPicking(true);
+    setAnnouncement("Waiting for folder selection.");
 
     try {
-      const result = await request(`/api/projects/${operation}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ token: board.token, ...fields }),
+      const result = await request("/api/projects/pick", {
+        ...form({}),
+        signal: controller.signal,
       });
 
-      setNewPath("");
-      setError("");
-
-      if (operation === "add") selectProject(result.id);
-      else selectProject(result.projects[0]?.id ?? "");
+      if (result.id) {
+        selectProject(result.id);
+        setAnnouncement("Project added.");
+      } else if (result.unsupported) {
+        setError("No native folder picker is available here. Use “Enter a path” instead.");
+      } else setAnnouncement("Cancelled.");
     } catch {
-      setError(
-        operation === "add"
-          ? "Could not add that project. Enter the path of an existing directory."
-          : "Could not remove the project. Reload and try again.",
-      );
+      if (!controller.signal.aborted) setError("Could not open the folder dialog.");
+    } finally {
+      pickAbort.current = null;
+      setPicking(false);
     }
   }
 
@@ -1048,7 +1401,11 @@ function App() {
         }
       })
       .catch(() => {
-        if (!controller.signal.aborted) setError("Could not load the board. Reload to try again.");
+        if (controller.signal.aborted) return;
+
+        // A remembered project may have been removed since; fall back to the first one.
+        if (activeProject) selectProject("");
+        else setError("Could not load the board. Reload to try again.");
       });
 
     return () => controller.abort();
@@ -1138,58 +1495,32 @@ function App() {
     }
   }
 
+  const stale = board !== null && projectId !== "" && board.projectId !== projectId;
+
   return (
-    <main className="mx-auto max-w-[1600px] px-5 py-8 md:px-10 md:py-10">
-      <header className="mb-8 flex flex-wrap items-end gap-x-6 gap-y-3">
-        <h1 className="font-serif text-display font-normal tracking-[-0.01em]">
-          {board?.project || "Project tasks"}
-        </h1>
-        <div className="ml-auto flex flex-wrap items-center gap-2 text-meta">
+    <main className="mx-auto max-w-[1600px] px-5 pb-8 md:px-10 md:pb-10">
+      <header className="sticky top-0 z-30 -mx-5 mb-6 flex items-center gap-4 border-b border-border bg-background/90 px-5 py-3 backdrop-blur md:-mx-10 md:px-10">
+        {board ? (
+          <ProjectMenu
+            board={board}
+            picking={picking}
+            onSelect={selectProject}
+            onRemove={(id) => void removeProject(id)}
+            onPick={() => void pickFolder()}
+            onCancelPick={() => pickAbort.current?.abort()}
+            onAddPath={addPath}
+          />
+        ) : (
+          <span className="font-serif text-xl">Factory</span>
+        )}
+        <div className="ml-auto flex items-center gap-3 text-meta text-muted-foreground">
           {board && board.projects.length > 0 ? (
-            <>
-              <select
-                aria-label="Project"
-                value={board.projectId}
-                onChange={(event) => selectProject(event.target.value)}
-                className="h-9 rounded-lg border border-border bg-card px-2.5"
-              >
-                {board.projects.map((project) => (
-                  <option key={project.id} value={project.id} title={project.path}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => void changeProjects("remove", { id: board.projectId })}
-                className="h-9 rounded-lg border border-border px-3 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Stop watching
-              </button>
-            </>
+            <span className="hidden tabular-nums sm:inline">
+              {board.tasks.length} tasks ·{" "}
+              {board.tasks.filter((task) => task.status === "inprogress").length} in progress
+            </span>
           ) : null}
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void changeProjects("add", { path: newPath });
-            }}
-          >
-            <input
-              aria-label="Project directory"
-              placeholder="/path/to/project"
-              value={newPath}
-              onChange={(event) => setNewPath(event.target.value)}
-              className="h-9 w-64 rounded-lg border border-border bg-card px-2.5"
-            />
-            <button
-              type="submit"
-              disabled={!board || !newPath.trim()}
-              className="h-9 rounded-lg bg-foreground px-3 text-background disabled:opacity-50"
-            >
-              Add project
-            </button>
-          </form>
+          <ThemeToggle />
         </div>
       </header>
       {error ? <Alert>{error}</Alert> : null}
@@ -1203,11 +1534,22 @@ function App() {
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
+      {board && board.projects.length === 0 ? (
+        <EmptyProjects
+          picking={picking}
+          onPick={() => void pickFolder()}
+          onCancelPick={() => pickAbort.current?.abort()}
+        />
+      ) : null}
       <div
         ref={boardRef}
         data-board="true"
-        className="grid grid-cols-[repeat(4,minmax(264px,1fr))] items-start gap-4 overflow-x-auto pb-6 [scrollbar-gutter:stable]"
-        aria-busy={Boolean(pending) || !board}
+        hidden={board !== null && board.projects.length === 0}
+        className={cn(
+          "grid grid-cols-[repeat(4,minmax(264px,1fr))] items-start gap-4 overflow-x-auto pb-6 transition-opacity [scrollbar-gutter:stable]",
+          stale && "opacity-60",
+        )}
+        aria-busy={Boolean(pending) || !board || stale}
       >
         {columns.map((column) => {
           const tasks = board?.tasks.filter((task) => task.status === column.id) ?? [];

@@ -566,3 +566,16 @@ test("projects can be added, scoped by id, and removed at runtime", async () => 
     }
   });
 });
+
+test("folder picker needs the board token and theme script is served", async () => {
+  await fixture(async (base) => {
+    const refused = await fetch(`${base}/api/projects/pick`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
+      body: new URLSearchParams({ token: "wrong" }),
+    });
+
+    assert.equal(refused.status, 403);
+    assert.match(await (await fetch(`${base}/theme.js`)).text(), /factory-theme/);
+  });
+});

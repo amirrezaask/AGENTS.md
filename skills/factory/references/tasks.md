@@ -49,7 +49,7 @@ A single board serves every project; projects do not carry a copy. Run it with
 with none given and an empty registry the current directory is adopted if it has
 `docs/tasks/`. Registered projects persist in `~/.factory/projects.json`
 (`FACTORY_HOME` overrides the directory) and can also be added or removed in the
-UI header. The board binds to `127.0.0.1` on any free port (PORT overrides) and
+UI header (a native folder dialog opens on the host; light/dark follows the system with a header toggle). The board binds to `127.0.0.1` on any free port (PORT overrides) and
 reports the URL. Leave a preview running only when ADMIN asks to use it. Never
 add `server.ts`, `index.html`, fonts or a `factory:board` script to a project.
 
