@@ -1,1 +1,0 @@
-../../skills/factory/assets/task-board/server.ts

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { JSDOM, VirtualConsole } from "jsdom";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { Schema } from "effect";
 import { tmpdir } from "node:os";
@@ -29,30 +29,19 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-async function fixture(
-  run: (base: string, tasks: string) => Promise<void>,
-  linked = false,
-): Promise<void> {
+async function fixture(run: (base: string, tasks: string) => Promise<void>): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "factory board "));
   const tasks = join(directory, "docs/tasks");
   await mkdir(tasks, { recursive: true });
-
-  for (const name of ["server.ts", "index.html", "anthropic-serif.woff2", "anthropic-sans.woff2"]) {
-    const asset = join(dirname(source), name);
-
-    if (linked) await symlink(asset, join(tasks, name));
-    else await cp(asset, join(tasks, name));
-  }
 
   await writeFile(
     join(directory, "package.json"),
     JSON.stringify({ name: "test-project", displayName: "Project <Atlas>" }),
   );
-  await symlink(join(repo, "node_modules"), join(directory, "node_modules"));
   const port = await freePort();
 
-  const child = spawn(process.execPath, ["--preserve-symlinks-main", join(tasks, "server.ts")], {
-    env: { ...process.env, PORT: String(port) },
+  const child = spawn(process.execPath, [source, directory], {
+    env: { ...process.env, PORT: String(port), FACTORY_HOME: join(directory, "home") },
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -427,7 +416,7 @@ test("React pointer grip persists status and updates the card without a reload",
   });
 });
 
-test("symlink installation reads consuming-project tasks and ignores linked board assets", async () => {
+test("one board reads the project it was started with", async () => {
   await fixture(async (base, tasks) => {
     await task(tasks, "local-project-task");
     const data = await board(base);
@@ -445,7 +434,7 @@ test("symlink installation reads consuming-project tasks and ignores linked boar
     );
     assert.equal((await fetch(`${base}/app.js`)).status, 200);
     assert.equal((await fetch(`${base}/fonts/anthropic-serif.woff2`)).status, 200);
-  }, true);
+  });
 });
 
 test("legacy flat tasks are reported, subtasks are counted, and a status collision is rejected", async () => {
@@ -520,6 +509,60 @@ test("React board refreshes when task files change on disk", async () => {
       );
     } finally {
       window.close();
+    }
+  });
+});
+
+test("projects can be added, scoped by id, and removed at runtime", async () => {
+  await fixture(async (base, tasks) => {
+    await task(tasks, "first-task");
+    const other = await mkdtemp(join(tmpdir(), "factory other "));
+
+    try {
+      await task(join(other, "docs/tasks"), "second-task");
+      const first = await board(base);
+      const form = { "Content-Type": "application/x-www-form-urlencoded", Origin: base };
+
+      const added = await fetch(`${base}/api/projects/add`, {
+        method: "POST",
+        headers: form,
+        body: new URLSearchParams({ token: first.token, path: other }),
+      });
+
+      assert.equal(added.status, 200);
+
+      const { id } = Schema.decodeUnknownSync(Schema.Struct({ id: Schema.String }))(
+        await added.json(),
+      );
+
+      const scoped = await (await fetch(`${base}/api/board?project=${id}`)).json();
+      assert.deepEqual(
+        scoped.tasks.map((item: { id: string }) => item.id),
+        ["second-task"],
+      );
+      assert.equal(scoped.projects.length, 2);
+
+      assert.equal((await board(base)).tasks[0]?.id, "first-task");
+
+      const refused = await fetch(`${base}/api/projects/add`, {
+        method: "POST",
+        headers: form,
+        body: new URLSearchParams({ token: "wrong", path: other }),
+      });
+
+      assert.equal(refused.status, 403);
+
+      const removed = await fetch(`${base}/api/projects/remove`, {
+        method: "POST",
+        headers: form,
+        body: new URLSearchParams({ token: first.token, id }),
+      });
+
+      assert.equal(removed.status, 200);
+
+      assert.equal((await fetch(`${base}/api/board?project=${id}`)).status, 404);
+    } finally {
+      await rm(other, { recursive: true, force: true });
     }
   });
 });

@@ -1,0 +1,27 @@
+{
+  "name": "amirreza-factory",
+  "version": "0.1.0",
+  "description": "One Factory task board that watches every project you register.",
+  "type": "module",
+  "bin": { "amirreza-factory": "bin.js" },
+  "files": ["bin.js", "server.ts", "index.html", "*.woff2"],
+  "engines": { "node": ">=24" },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.3.1",
+    "@radix-ui/react-slot": "^1.5.0",
+    "@radix-ui/react-tabs": "^1.2.1",
+    "@tailwindcss/oxide": "^4.1.18",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "effect": "4.1.0",
+    "esbuild": "^0.28.2",
+    "gray-matter": "^4.0.3",
+    "lucide-react": "^1.63.0",
+    "marked": "^17.0.6",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sanitize-html": "^2.18.1",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.1.18"
+  }
+}

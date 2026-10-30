@@ -40,86 +40,21 @@ Subtasks nest recursively without limit: any subtask may hold its own
 `subtasks/<status>/…` tree with the same structure and rules. The parent card's
 count covers every descendant at all depths.
 
-## Install in a consuming project
+## One shared board
 
-1. Run the installer shipped with the skill from the project root. It copies
-   `server.ts`, `index.html` and the two Anthropic fonts into `docs/tasks/`
-   (the requested board location is an exception to the tools convention), adds
-   the `factory:board` script and the dependencies below to package.json without
-   touching unrelated entries or existing compatible versions, and runs the
-   project's package manager (npm, pnpm, yarn or bun by lockfile) to update its
-   lockfile. Re-running updates the copied assets.
+A single board serves every project; projects do not carry a copy. Run it with
+`npx amirreza-factory [project-dir...]` (from this repository, `npm link` inside
+`skills/factory/assets/task-board/` after `npm install` there, then run
+`amirreza-factory`). Node.js 24+ is required. Listed directories are registered;
+with none given and an empty registry the current directory is adopted if it has
+`docs/tasks/`. Registered projects persist in `~/.factory/projects.json`
+(`FACTORY_HOME` overrides the directory) and can also be added or removed in the
+UI header. The board binds to `127.0.0.1` on any free port (PORT overrides) and
+reports the URL. Leave a preview running only when ADMIN asks to use it. Never
+add `server.ts`, `index.html`, fonts or a `factory:board` script to a project.
 
-   ```sh
-   node <skill-dir>/assets/task-board/install-board.ts [project-dir] [--link] [--no-install] [--dry-run]
-   ```
-
-   `--link` symlinks the assets instead of copying them, for a project that
-   consumes this library directly. An existing unrelated `factory:board` script
-   stops the install; rename it first.
-2. Require Node.js 24+. All browser/compiler dependencies are local; the server
-   never downloads code or fonts when starting.
-3. Run relevant project checks and smoke-test the copied app, document tabs,
-   and status persistence against disposable task data. Remove test data after.
-4. Start with `npm run factory:board` or the project's equivalent. It binds to
-   `127.0.0.1` on any free port (reported at startup), configurable with PORT. Report the URL and stop instructions.
-   Leave a preview running only when ADMIN asks to use it.
-
-Run the installer on the first Factory task in a project unless a board already
-exists or ADMIN requests documents only.
-
-The installer applies these ranges (listed for manual installs with npm):
-
-```sh
-npm install effect@3.22.4 marked@17 gray-matter@4 sanitize-html@2 react@19 react-dom@19 @radix-ui/react-dialog@1 @radix-ui/react-tabs@1 @radix-ui/react-slot@1 class-variance-authority@0.7 clsx@2 tailwind-merge@3 lucide-react@1 esbuild@0.28 tailwindcss@4.1.18 @tailwindcss/oxide@4.1.18
-```
-
-Keep Tailwind and its oxide scanner aligned. Shadcn components are source code
-inside index.html, using Radix primitives; there is no shadcn browser script or
-runtime package to load. Preserve the included MIT attribution when adapting.
-
-## Application behavior
-
-The complete React application, adapted shadcn Button/Card/Dialog/Tabs/Alert
-components, semantic Tailwind theme, and custom reader styles live in index.html.
-The server compiles that embedded TSX and Tailwind CSS once at startup, in memory,
-using installed dependencies. No separate build command, CDN, generated source
-files, framework scaffolding, or database is needed. Restart after source edits.
-
-React loads the board API once, opens an accessible controlled dialog, and fetches
-both sanitized documents when a task opens. Switching tabs is local state. The
-modal occupies 80vw by 90dvh with internal document scrolling. Dragging cards or
-using the pointer/touch grip submits a status operation; success updates card
-placement and counts in React without a page reload. Failures keep the local
-board unchanged and explain how to reconcile status. Keyboard moves use Space,
-Left/Right, Enter, and Escape. Titles still open documents.
-
-Reload the browser to import task-file edits made externally. A status move
-renames the task directory between status directories (creating the target
-directory when absent) and refuses a name that already exists there. Directories
-directly under `docs/tasks/` that are not status directories (legacy flat tasks)
-are listed as errors so they can be moved. Invalid task
-metadata is visible without hiding valid tasks; missing documents have an
-unavailable state. The board never edits brief/plan content, creates/deletes
-tasks or subtasks, dispatches agents, or integrates with Codex/Claude sessions.
-
-The server reads documents beside itself independent of cwd. It rejects symlinked
-task/document paths, invalid statuses, and writes without the local token and
-expected origin. It serves only localhost; remote deployment is outside scope.
-
-## Project name and visual design
-
-Only the project name appears above the columns, read from package.json
+The header shows the selected project name and a project switcher; the name is read from package.json
 `displayName`, then `name`, then the project directory. React renders it as text.
 Claude-reference cream/charcoal/clay tokens, locally served Anthropic Serif/Sans,
 and restrained transitions carry the visual language. Motion respects reduced
 motion. [Font sources](../assets/task-board/FONTS.md) are recorded with the assets.
-
-## Symlink installation in this library
-
-When ADMIN requests links for this repository, use relative symlinks from
-`docs/tasks/` to the canonical server, index.html, and two fonts in the skill.
-Run `node --preserve-symlinks-main docs/tasks/server.ts` so import.meta.url keeps
-the consuming task directory. The board ignores these four linked asset names
-when discovering tasks (they sit beside, not inside, the status directories); task directories and documents retain their existing
-symlink protections. Other projects use copied assets unless links are requested.

@@ -230,6 +230,10 @@ const taskSchema = Schema.Struct({
 
 const boardSchema = Schema.Struct({
   project: Schema.String,
+  projectId: Schema.String,
+  projects: Schema.Array(
+    Schema.Struct({ id: Schema.String, name: Schema.String, path: Schema.String }),
+  ),
   token: Schema.String,
   tasks: Schema.Array(taskSchema),
   errors: Schema.Array(Schema.String),
@@ -270,6 +274,19 @@ type Gesture = {
   moved: boolean;
   target: Status | null;
 };
+
+// Every API call is scoped to the project selected in the header.
+let activeProject = "";
+
+try {
+  activeProject = localStorage.getItem("factory-project") ?? "";
+} catch {
+  activeProject = "";
+}
+
+function api(path: string) {
+  return activeProject ? `${path}${path.includes("?") ? "&" : "?"}project=${activeProject}` : path;
+}
 
 async function request(path: string, init?: RequestInit) {
   const response = await fetch(path, init);
@@ -752,7 +769,7 @@ function TaskReader({
       requestAnimationFrame(() => titleRef.current?.focus());
     }
 
-    request(`/api/tasks/${task.id.split("/").map(encodeURIComponent).join("/")}`, {
+    request(api(`/api/tasks/${task.id.split("/").map(encodeURIComponent).join("/")}`), {
       signal: controller.signal,
     })
       .then((value) => {
@@ -769,7 +786,7 @@ function TaskReader({
     if (!task || liveKey === 0) return;
     const controller = new AbortController();
 
-    request(`/api/tasks/${task.id.split("/").map(encodeURIComponent).join("/")}`, {
+    request(api(`/api/tasks/${task.id.split("/").map(encodeURIComponent).join("/")}`), {
       signal: controller.signal,
     })
       .then((value) => {
@@ -976,15 +993,58 @@ function App() {
   const saving = React.useRef(false);
   const pickedRef = React.useRef<Picked | null>(null);
   const [liveKey, setLiveKey] = React.useState(0);
+  const [projectId, setProjectId] = React.useState(activeProject);
+  const [newPath, setNewPath] = React.useState("");
+
+  function selectProject(id: string) {
+    activeProject = id;
+
+    try {
+      localStorage.setItem("factory-project", id);
+    } catch {
+      // Selection still works for this page load without storage.
+    }
+
+    setBoard(null);
+    setSelected(null);
+    setProjectId(id);
+  }
+
+  async function changeProjects(operation: "add" | "remove", fields: Record<string, string>) {
+    if (!board) return;
+
+    try {
+      const result = await request(`/api/projects/${operation}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token: board.token, ...fields }),
+      });
+
+      setNewPath("");
+      setError("");
+
+      if (operation === "add") selectProject(result.id);
+      else selectProject(result.projects[0]?.id ?? "");
+    } catch {
+      setError(
+        operation === "add"
+          ? "Could not add that project. Enter the path of an existing directory."
+          : "Could not remove the project. Reload and try again.",
+      );
+    }
+  }
+
   React.useEffect(() => {
     const controller = new AbortController();
-    request("/api/board", { signal: controller.signal })
+    request(api("/api/board"), { signal: controller.signal })
       .then((value) => {
         if (!controller.signal.aborted) {
           const data = Schema.decodeUnknownSync(boardSchema)(value);
           setBoard(data);
           setError("");
-          document.title = data.project + " — Tasks";
+
+          activeProject = data.projectId;
+          document.title = (data.project || "Factory") + " — Tasks";
         }
       })
       .catch(() => {
@@ -992,12 +1052,22 @@ function App() {
       });
 
     return () => controller.abort();
-  }, [liveKey]);
+  }, [liveKey, projectId]);
   React.useEffect(() => {
     // EventSource reconnects on its own; a "change" event means task files changed on disk.
     const events = new EventSource("/api/events");
 
-    events.addEventListener("change", () => {
+    events.addEventListener("change", (event) => {
+      let changed = "";
+
+      try {
+        changed = event instanceof MessageEvent ? JSON.parse(event.data).project : "";
+      } catch {
+        changed = "";
+      }
+
+      if (changed && changed !== activeProject) return;
+
       if (!saving.current && !pickedRef.current) setLiveKey((key) => key + 1);
     });
 
@@ -1044,7 +1114,7 @@ function App() {
         await request("/api/status", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ token: board.token, task: id, status }),
+          body: new URLSearchParams({ token: board.token, project: board.projectId, task: id, status }),
         }),
       );
 
@@ -1070,9 +1140,58 @@ function App() {
 
   return (
     <main className="mx-auto max-w-[1600px] px-5 py-8 md:px-10 md:py-10">
-      <h1 className="mb-8 font-serif text-display font-normal tracking-[-0.01em]">
-        {board?.project ?? "Project tasks"}
-      </h1>
+      <header className="mb-8 flex flex-wrap items-end gap-x-6 gap-y-3">
+        <h1 className="font-serif text-display font-normal tracking-[-0.01em]">
+          {board?.project || "Project tasks"}
+        </h1>
+        <div className="ml-auto flex flex-wrap items-center gap-2 text-meta">
+          {board && board.projects.length > 0 ? (
+            <>
+              <select
+                aria-label="Project"
+                value={board.projectId}
+                onChange={(event) => selectProject(event.target.value)}
+                className="h-9 rounded-lg border border-border bg-card px-2.5"
+              >
+                {board.projects.map((project) => (
+                  <option key={project.id} value={project.id} title={project.path}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void changeProjects("remove", { id: board.projectId })}
+                className="h-9 rounded-lg border border-border px-3 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Stop watching
+              </button>
+            </>
+          ) : null}
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void changeProjects("add", { path: newPath });
+            }}
+          >
+            <input
+              aria-label="Project directory"
+              placeholder="/path/to/project"
+              value={newPath}
+              onChange={(event) => setNewPath(event.target.value)}
+              className="h-9 w-64 rounded-lg border border-border bg-card px-2.5"
+            />
+            <button
+              type="submit"
+              disabled={!board || !newPath.trim()}
+              className="h-9 rounded-lg bg-foreground px-3 text-background disabled:opacity-50"
+            >
+              Add project
+            </button>
+          </form>
+        </div>
+      </header>
       {error ? <Alert>{error}</Alert> : null}
       {board?.errors.map((message) => (
         <Alert key={message}>{message}</Alert>

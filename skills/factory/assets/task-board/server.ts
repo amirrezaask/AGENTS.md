@@ -1,10 +1,11 @@
 import type { AddressInfo } from "node:net";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { constants, watch } from "node:fs";
-import { lstat, mkdir, open, readdir, readFile, rename } from "node:fs/promises";
+import { constants, watch, type FSWatcher } from "node:fs";
+import { lstat, mkdir, open, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { Effect, Schema } from "effect";
 import { build } from "esbuild";
 import { compile } from "tailwindcss";
@@ -14,13 +15,13 @@ import matter from "gray-matter";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 
-const root = dirname(fileURLToPath(import.meta.url));
+const assetsDir = dirname(fileURLToPath(import.meta.url));
 
 const NonEmptyTrimmed = Schema.String.check(Schema.isTrimmed(), Schema.isNonEmpty());
 
-async function projectName(): Promise<string> {
+async function projectName(project: string): Promise<string> {
   try {
-    const value = JSON.parse(await readFile(join(root, "../../package.json"), "utf8"));
+    const value = JSON.parse(await readFile(join(project, "package.json"), "utf8"));
 
     const info = Schema.decodeUnknownSync(
       Schema.Struct({
@@ -29,10 +30,69 @@ async function projectName(): Promise<string> {
       }),
     )(value);
 
-    return info.displayName ?? info.name ?? basename(dirname(dirname(root)));
+    return info.displayName ?? info.name ?? basename(project);
   } catch {
-    return basename(dirname(dirname(root)));
+    return basename(project);
   }
+}
+
+// Watched projects live in one registry file so every board session shows the same set.
+const registryFile = join(process.env.FACTORY_HOME ?? join(homedir(), ".factory"), "projects.json");
+
+const registered: string[] = await readFile(registryFile, "utf8").then(
+  (text) => Schema.decodeUnknownSync(Schema.Array(Schema.String))(JSON.parse(text)).slice(),
+  () => [],
+);
+
+const projectId = (path: string) => createHash("sha1").update(path).digest("hex").slice(0, 10);
+const tasksOf = (project: string) => join(project, "docs", "tasks");
+
+async function saveRegistry(): Promise<void> {
+  await mkdir(dirname(registryFile), { recursive: true });
+  await writeFile(registryFile, JSON.stringify(registered, null, 2) + "\n");
+}
+
+async function addProject(input: string): Promise<string> {
+  const path = resolve(input);
+
+  if (!(await realDirectory(path))) throw new BoardError("Project must be an existing directory.");
+
+  if (!registered.includes(path)) {
+    registered.push(path);
+    await saveRegistry();
+    watchProject(path);
+  }
+
+  return path;
+}
+
+async function removeProject(id: string): Promise<void> {
+  const path = registered.find((entry) => projectId(entry) === id);
+
+  if (!path) throw new BoardError("Project not found.", 404);
+  registered.splice(registered.indexOf(path), 1);
+  watchers.get(path)?.close();
+  watchers.delete(path);
+  await saveRegistry();
+}
+
+// Requests name a project by id; without one the first registered project is used.
+function projectPath(id: string | null | undefined): string {
+  const path = id ? registered.find((entry) => projectId(entry) === id) : registered[0];
+
+  if (!path) throw new BoardError("Add a project to start watching its tasks.", 404);
+
+  return path;
+}
+
+async function listProjects() {
+  return Promise.all(
+    registered.map(async (path) => ({
+      id: projectId(path),
+      name: await projectName(path),
+      path,
+    })),
+  );
 }
 
 const statuses = ["backlog", "inprogress", "blocked", "done"];
@@ -76,7 +136,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 // An id is a slash-separated path: a top-level task name followed by nested subtask names.
-async function locate(id: string): Promise<{ status: string; directory: string }> {
+async function locate(root: string, id: string): Promise<{ status: string; directory: string }> {
   const [top, ...nested] = id.split("/");
 
   if (!top || !slug.test(top) || !nested.every((name) => slug.test(name)))
@@ -121,8 +181,8 @@ async function locate(id: string): Promise<{ status: string; directory: string }
   return current;
 }
 
-async function taskFile(id: string, name: string): Promise<string> {
-  const { directory } = await locate(id);
+async function taskFile(root: string, id: string, name: string): Promise<string> {
+  const { directory } = await locate(root, id);
   const path = join(directory, name);
   const file = await lstat(path);
 
@@ -132,8 +192,8 @@ async function taskFile(id: string, name: string): Promise<string> {
   return path;
 }
 
-async function readDocument(id: string, name: string): Promise<string> {
-  const path = await taskFile(id, name);
+async function readDocument(root: string, id: string, name: string): Promise<string> {
+  const path = await taskFile(root, id, name);
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
 
   try {
@@ -176,8 +236,8 @@ async function countSubtasks(directory: string): Promise<{ total: number; done: 
   return count;
 }
 
-async function listSubtasks(id: string) {
-  const { directory } = await locate(id);
+async function listSubtasks(root: string, id: string) {
+  const { directory } = await locate(root, id);
   const subtasks = [];
 
   for (const status of statuses) {
@@ -192,7 +252,7 @@ async function listSubtasks(id: string) {
       const childId = `${id}/${entry.name}`;
 
       try {
-        const { data } = decodeTask(await readDocument(childId, "TASK.md"));
+        const { data } = decodeTask(await readDocument(root, childId, "TASK.md"));
 
         subtasks.push({
           id: childId,
@@ -216,9 +276,12 @@ async function listSubtasks(id: string) {
   return subtasks;
 }
 
-async function listTasks() {
-  const tasks = [];
-  const errors = [];
+async function listTasks(root: string) {
+  const tasks: TaskSummary[] = [];
+  const errors: string[] = [];
+
+  if (!(await realDirectory(root)))
+    return { tasks, errors: ["No docs/tasks directory in this project yet."] };
 
   for (const entry of (await readdir(root, { withFileTypes: true })).sort((left, right) =>
     left.name.localeCompare(right.name),
@@ -237,7 +300,7 @@ async function listTasks() {
       if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
 
       try {
-        const { data } = decodeTask(await readDocument(entry.name, "TASK.md"));
+        const { data } = decodeTask(await readDocument(root, entry.name, "TASK.md"));
         const subtasks = await countSubtasks(join(root, status, entry.name));
         tasks.push({ id: entry.name, status, subtasks, ...data });
       } catch {
@@ -251,9 +314,9 @@ async function listTasks() {
   return { tasks, errors };
 }
 
-async function renderDocument(id: string, name: string): Promise<string> {
+async function renderDocument(root: string, id: string, name: string): Promise<string> {
   try {
-    const text = await readDocument(id, name);
+    const text = await readDocument(root, id, name);
     const { content } = matter(text);
 
     return sanitizeHtml(await marked.parse(content), {
@@ -276,27 +339,38 @@ type TaskSummary = {
   updated: string;
 };
 
-async function move(request: IncomingMessage): Promise<TaskSummary> {
+async function formFields(request: IncomingMessage, address: string): Promise<URLSearchParams> {
+  if (request.headers.origin !== `http://${address}`)
+    throw new BoardError("Changes must originate from this board.", 403);
+
+  if (request.headers["content-type"]?.split(";")[0] !== "application/x-www-form-urlencoded")
+    throw new BoardError("Use the board's form operations.", 415);
   let body = "";
 
   for await (const chunk of request) {
     body += chunk;
 
-    if (Buffer.byteLength(body) > 8192) throw new BoardError("Status form is too large.", 413);
+    if (Buffer.byteLength(body) > 8192) throw new BoardError("Form is too large.", 413);
   }
 
   const fields = new URLSearchParams(body);
 
   if (fields.get("token") !== token)
-    throw new BoardError("Refresh the board before changing status.", 403);
+    throw new BoardError("Refresh the board before making changes.", 403);
+
+  return fields;
+}
+
+async function move(fields: URLSearchParams): Promise<TaskSummary> {
+  const root = tasksOf(projectPath(fields.get("project")));
   const id = fields.get("task") ?? "";
 
   if (id.includes("/")) throw new BoardError("Only top-level tasks can change status.");
   const status = fields.get("status") ?? "";
 
   if (!statuses.includes(status)) throw new BoardError("Unknown task status.");
-  const current = await locate(id);
-  const path = await taskFile(id, "TASK.md");
+  const current = await locate(root, id);
+  const path = await taskFile(root, id, "TASK.md");
   const file = await open(path, constants.O_RDWR | constants.O_NOFOLLOW);
 
   try {
@@ -343,7 +417,7 @@ async function move(request: IncomingMessage): Promise<TaskSummary> {
 }
 
 async function buildUI() {
-  const source = await readFile(join(root, "index.html"), "utf8");
+  const source = await readFile(join(assetsDir, "index.html"), "utf8");
   const script = /<script type="text\/tsx">([\s\S]*?)<\/script>/.exec(source);
   const style = /<style type="text\/tailwindcss">([\s\S]*?)<\/style>/.exec(source);
 
@@ -351,7 +425,12 @@ async function buildUI() {
     throw new Error("index.html requires its TSX script and Tailwind style blocks.");
 
   const result = await build({
-    stdin: { contents: script[1], loader: "tsx", resolveDir: root, sourcefile: "index.html.tsx" },
+    stdin: {
+      contents: script[1],
+      loader: "tsx",
+      resolveDir: assetsDir,
+      sourcefile: "index.html.tsx",
+    },
     bundle: true,
     write: false,
     format: "iife",
@@ -365,7 +444,7 @@ async function buildUI() {
   const require = createRequire(import.meta.url);
 
   const compiler = await compile(style[1], {
-    base: root,
+    base: assetsDir,
     loadStylesheet: async (id, base) => {
       const path = id.startsWith(".")
         ? resolve(base, id)
@@ -375,7 +454,10 @@ async function buildUI() {
     },
   });
 
-  const scanner = new Scanner({ sources: [{ base: root, pattern: "index.html", negated: false }] });
+  const scanner = new Scanner({
+    sources: [{ base: assetsDir, pattern: "index.html", negated: false }],
+  });
+
   const javascript = result.outputFiles[0]?.text;
 
   if (!javascript) throw new Error("Unable to prepare the React application.");
@@ -395,14 +477,34 @@ function json<T>(response: ServerResponse, value: T): void {
 }
 
 const listeners = new Set<ServerResponse>();
-let notifyTimer: NodeJS.Timeout | undefined;
+const watchers = new Map<string, FSWatcher>();
+const notifyTimers = new Map<string, NodeJS.Timeout>();
 
 // Task files change in bursts (editor saves, git checkouts), so coalesce them into one event.
-function notifyChange() {
-  clearTimeout(notifyTimer);
-  notifyTimer = setTimeout(() => {
-    for (const listener of listeners) listener.write("event: change\ndata: {}\n\n");
-  }, 150);
+function notifyChange(project: string) {
+  clearTimeout(notifyTimers.get(project));
+
+  notifyTimers.set(
+    project,
+    setTimeout(() => {
+      const data = JSON.stringify({ project: projectId(project) });
+
+      for (const listener of listeners) listener.write(`event: change\ndata: ${data}\n\n`);
+    }, 150),
+  );
+}
+
+// Recursive watching is supported on macOS and Windows; elsewhere the board falls back to reloads.
+function watchProject(project: string) {
+  if (watchers.has(project)) return;
+
+  try {
+    const watcher = watch(tasksOf(project), { recursive: true }, () => notifyChange(project));
+    watcher.on("error", () => undefined);
+    watchers.set(project, watcher);
+  } catch {
+    console.warn(`Not watching ${project}; reload the board to see task changes.`);
+  }
 }
 
 function openEvents(request: IncomingMessage, response: ServerResponse) {
@@ -441,14 +543,44 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
     ["/fonts/anthropic-serif.woff2", "/fonts/anthropic-sans.woff2"].includes(url.pathname)
   ) {
     response.setHeader("Content-Type", "font/woff2");
-    response.end(await readFile(join(root, basename(url.pathname))));
+    response.end(await readFile(join(assetsDir, basename(url.pathname))));
   } else if (request.method === "GET" && url.pathname === "/") {
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.end(assets.html);
   } else if (request.method === "GET" && url.pathname === "/api/events") {
     openEvents(request, response);
   } else if (request.method === "GET" && url.pathname === "/api/board") {
-    json(response, { project: await projectName(), token, ...(await listTasks()) });
+    if (registered.length === 0)
+      return json(response, {
+        project: "",
+        projectId: "",
+        projects: [],
+        token,
+        tasks: [],
+        errors: ["Add a project directory to start watching its tasks."],
+      });
+    const project = projectPath(url.searchParams.get("project"));
+
+    json(response, {
+      project: await projectName(project),
+      projectId: projectId(project),
+      projects: await listProjects(),
+      token,
+      ...(await listTasks(tasksOf(project))),
+    });
+  } else if (request.method === "GET" && url.pathname === "/api/projects") {
+    json(response, { projects: await listProjects() });
+  } else if (request.method === "POST" && url.pathname.startsWith("/api/projects/")) {
+    const fields = await formFields(request, address);
+    const action = url.pathname.slice("/api/projects/".length);
+
+    if (action === "add") {
+      const path = await addProject(fields.get("path") ?? "");
+      json(response, { id: projectId(path), projects: await listProjects() });
+    } else if (action === "remove") {
+      await removeProject(fields.get("id") ?? "");
+      json(response, { projects: await listProjects() });
+    } else throw new BoardError("Page not found.", 404);
   } else if (request.method === "GET" && url.pathname.startsWith("/api/tasks/")) {
     const id = url.pathname
       .slice("/api/tasks/".length)
@@ -456,22 +588,18 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
       .map(decodeURIComponent)
       .join("/");
 
-    decodeTask(await readDocument(id, "TASK.md"));
+    const root = tasksOf(projectPath(url.searchParams.get("project")));
+    decodeTask(await readDocument(root, id, "TASK.md"));
 
     const [brief, plan, subtasks] = await Promise.all([
-      renderDocument(id, "BRIEF.md"),
-      renderDocument(id, "PLAN.md"),
-      listSubtasks(id),
+      renderDocument(root, id, "BRIEF.md"),
+      renderDocument(root, id, "PLAN.md"),
+      listSubtasks(root, id),
     ]);
 
     json(response, { brief, plan, subtasks });
   } else if (request.method === "POST" && ["/api/status", "/status"].includes(url.pathname)) {
-    if (request.headers.origin !== `http://${address}`)
-      throw new BoardError("Status changes must originate from this board.", 403);
-
-    if (request.headers["content-type"]?.split(";")[0] !== "application/x-www-form-urlencoded")
-      throw new BoardError("Use the board's status operation.", 415);
-    const updated = await move(request);
+    const updated = await move(await formFields(request, address));
 
     if (url.pathname === "/api/status") json(response, updated);
     else {
@@ -506,12 +634,15 @@ const server = createServer((request, response) => {
 
 server.requestTimeout = 10000;
 
-// Recursive watching is supported on macOS and Windows; elsewhere the board falls back to reloads.
-try {
-  watch(root, { recursive: true }, notifyChange).on("error", () => undefined);
-} catch {
-  console.warn("File watching is unavailable; reload the board to see task changes.");
-}
+// `amirreza-factory [dir...]` registers the given projects; an empty registry adopts the cwd.
+const requested = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
+
+for (const dir of requested) await addProject(dir);
+
+if (registered.length === 0 && (await realDirectory(tasksOf(process.cwd()))))
+  await addProject(process.cwd());
+
+for (const project of registered) watchProject(project);
 
 server.on("error", (error) => {
   console.error(error.message);

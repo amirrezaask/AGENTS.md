@@ -5,7 +5,6 @@ Address the user as ADMIN. GLOBAL means `~/.agents/`.
 Never add a top-level directory without asking. Beyond the stack's own source layout, every project has:
 
 - `docs/tasks/<status>/<task-name>/` (status: `backlog`, `inprogress`, `blocked`, `done`): Factory tasks with `TASK.md` metadata, approved `BRIEF.md`, and mutable `PLAN.md`. The status directory is the task's status. Subtasks use the same structure under `<task-name>/subtasks/<status>/<subtask-name>/` and need no ADMIN approval. Historical briefs and plans stay in place unless migration is requested.
-- `docs/tasks/server.ts`: the optional Factory board server; this is the specific exception to the tooling location rule.
 - `docs/reports/`: every benchmark, test and verification result, one dir or `.md` per run, `$date-$title`. Track only Markdown summaries; raw output (json, png, logs, traces) is gitignored. Playwright and playthrough output is written here by the config.
 - `docs/README.md`, `docs/architecture.md`, `docs/domain.md`, `docs/data-model.md`, `docs/quality.md`, and `docs/operations.md`: Atlas's system purpose/navigation, structure, shared concepts, data ownership, quality requirements, and operational behavior. These documents live directly under `docs/`.
 - `docs/areas/<area-name>.md`: ground rules, state ownership, and relevant contracts for each software area.

@@ -94,19 +94,14 @@ The optional board groups cards into Backlog, In progress, Blocked, and Done (on
 The single-file React app in `index.html` uses adapted shadcn components and
 Tailwind. Cards open a modal with rendered Brief and Plan tabs. Drag-and-drop or keyboard moves move the task directory and update
 `TASK.md`; they never launch sessions or prove that work is complete.
-The [board installation instructions](skills/factory/references/tasks.md) run
-`node <skill-dir>/assets/task-board/install-board.ts [project-dir]` (this repo: `npm run install:board -- <project-dir>`), which copies
-`server.ts`, `index.html`, and fonts to the consuming project's `docs/tasks/`, adds the `factory:board` script and dependencies to that
-project's package.json, installs them, and the board runs on localhost. The server prepares local
-React/Tailwind assets at startup; no separate build command or database is needed.
+One board watches all your projects: run `npx amirreza-factory [project-dir...]`
+(see the [board instructions](skills/factory/references/tasks.md)); add or remove projects from
+the header or by passing directories. Projects are remembered in `~/.factory/projects.json`. The
+server prepares local React/Tailwind assets at startup; no separate build command or database is needed.
 Card moves, modal opening, and tab changes update React state without navigation.
 Historical briefs and plans are not automatically moved.
 
-This repository also symlinks its own board assets into `docs/tasks/`. Run
-`npm run factory:board` from the repository root. The command preserves the
-entrypoint symlink so the board reads this project’s tasks rather than the skill
-asset directory. If the demo occupies port 4310, use
-`PORT=4311 npm run factory:board`.
+Run it from this repository with `npm run factory:board`; `PORT=4311` picks a port.
 
 ## Install
 

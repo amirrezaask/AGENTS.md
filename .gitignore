@@ -5,3 +5,4 @@ node_modules/
 docs/reports/**/*.json
 docs/reports/**/*.log
 docs/reports/**/*.png
+.server.mjs
