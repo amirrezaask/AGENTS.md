@@ -321,3 +321,87 @@ test("migrates the former Factory spec alias to Atlas on selected installs, incl
       );
     }
   }));
+
+const budgetHook = "session-budget-hook.ts";
+
+function readJson(path: string) {
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+test("registers the session budget hook once, preserving existing settings and hooks", () =>
+  isolated((home) => {
+    const settings = join(home, ".claude", "settings.json");
+    const other = { matcher: "*", hooks: [{ type: "command", command: "echo keep" }] };
+    mkdirSync(join(home, ".claude"));
+    writeFileSync(
+      settings,
+      JSON.stringify({ model: "sonnet", hooks: { PostToolUse: [other], Stop: [other] } }),
+    );
+
+    assert.equal(invoke(home, "--dry-run").status, 0);
+    assert.equal(readJson(settings).hooks.PostToolUse.length, 1);
+
+    assert.equal(invoke(home).status, 0);
+    const installed = readJson(settings);
+    assert.equal(installed.model, "sonnet");
+    assert.deepEqual(installed.hooks.Stop, [other]);
+    assert.deepEqual(installed.hooks.PostToolUse[0], other);
+    assert.equal(installed.hooks.PostToolUse.length, 2);
+    const link = join(home, ".claude", "hooks", budgetHook);
+    assert.equal(readlinkSync(link), join(root, "tools", budgetHook));
+    assert.ok(installed.hooks.PostToolUse[1].hooks[0].command.includes(link));
+
+    const before = readFileSync(settings, "utf8");
+    assert.equal(invoke(home).status, 0);
+    assert.equal(readFileSync(settings, "utf8"), before);
+
+    installed.hooks.PostToolUse[1].hooks[0].command = `old ${budgetHook}`;
+    writeFileSync(settings, JSON.stringify(installed));
+    assert.equal(invoke(home).status, 0);
+    assert.equal(readFileSync(settings, "utf8"), before);
+  }));
+
+test("unparseable settings.json fails before any home mutation", () =>
+  isolated((home) => {
+    mkdirSync(join(home, ".claude"));
+    writeFileSync(join(home, ".claude", "settings.json"), "{ not json");
+    const result = invoke(home);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /unparseable settings/);
+    assert.equal(readFileSync(join(home, ".claude", "settings.json"), "utf8"), "{ not json");
+    assert.equal(existsSync(join(home, ".agents")), false);
+    assert.equal(existsSync(join(home, ".claude", "hooks")), false);
+  }));
+
+test("session budget hook warns once at the soft limit and on every call past the hard limit", () =>
+  isolated((home) => {
+    const transcript = join(home, "transcript.jsonl");
+    const sessionId = `budget-test-${process.pid}`;
+
+    const run = (lines: number, extra: { agent_id?: string; transcript_path?: string } = {}) => {
+      writeFileSync(transcript, "{}\n".repeat(lines));
+
+      return spawnSync(process.execPath, [join(root, "tools", budgetHook)], {
+        env: { ...process.env, SESSION_BUDGET_WARN: "5", SESSION_BUDGET_HARD: "8" },
+        input: JSON.stringify({ session_id: sessionId, transcript_path: transcript, ...extra }),
+        encoding: "utf8",
+      });
+    };
+
+    try {
+      assert.equal(run(4).stdout, "");
+      const warned = run(5);
+      assert.equal(warned.status, 0);
+      const output = JSON.parse(warned.stdout).hookSpecificOutput;
+      assert.equal(output.hookEventName, "PostToolUse");
+      assert.match(output.additionalContext, /5 messages \(limit 5\)/);
+      assert.match(output.additionalContext, /start_session/);
+      assert.equal(run(6).stdout, "");
+      assert.match(run(8).stdout, /limit 8/);
+      assert.match(run(9).stdout, /limit 8/);
+      assert.equal(run(9, { agent_id: "sub" }).stdout, "");
+      assert.equal(run(9, { transcript_path: join(home, "missing") }).stdout, "");
+    } finally {
+      rmSync(join(tmpdir(), `session-budget-${sessionId.replace(/\W/g, "_")}`), { force: true });
+    }
+  }));
