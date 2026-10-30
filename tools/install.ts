@@ -2,12 +2,14 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   readlinkSync,
   realpathSync,
   statSync,
   symlinkSync,
   unlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -43,6 +45,64 @@ function present(path: string): boolean {
       }
     })()
   );
+}
+
+interface HookCommand {
+  type: string;
+  command?: string;
+  timeout?: number;
+}
+
+interface HookGroup {
+  matcher?: string;
+  hooks?: HookCommand[];
+}
+
+interface Settings {
+  hooks?: Record<string, HookGroup[]>;
+}
+
+const budgetHook = "session-budget-hook.ts";
+
+function quote(path: string): string {
+  return `'${path.replaceAll("'", "'\\''")}'`;
+}
+
+function readSettings(path: string): Settings {
+  if (!present(path)) return {};
+
+  try {
+    const settings = JSON.parse(readFileSync(path, "utf8"));
+
+    if (!(settings instanceof Object) || Array.isArray(settings))
+      throw new Error("not a JSON object");
+
+    return settings;
+  } catch (error) {
+    throw new Error(
+      `Refusing to modify unparseable settings ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+}
+
+// Registers the session budget hook once. A rerun only rewrites our own entry
+// (found by script name), so other hooks in settings.json are never touched.
+function registerBudgetHook(path: string, settings: Settings, command: string, write: boolean) {
+  const groups = ((settings.hooks ??= {}).PostToolUse ??= []);
+
+  const known = groups
+    .flatMap((group) => group.hooks ?? [])
+    .find((hook) => hook.command?.includes(budgetHook));
+
+  if (known?.command === command) return;
+
+  console.log(`${known ? "update" : "add"} PostToolUse hook in ${path}`);
+
+  if (known) known.command = command;
+  else groups.push({ matcher: "*", hooks: [{ type: "command", command, timeout: 10 }] });
+
+  if (write) writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`);
 }
 
 function main(): void {
@@ -96,7 +156,7 @@ function main(): void {
     { name: "SPEC_TEMPLATE.md", path: "skills/atlas/templates/AREA_TEMPLATE.md" },
   ];
 
-  for (const { path } of globalFiles) {
+  for (const path of [...globalFiles.map((file) => file.path), join("tools", budgetHook)]) {
     const source = join(repo, path);
 
     if (!existsSync(source) || !statSync(source).isFile()) {
@@ -127,7 +187,15 @@ function main(): void {
     ...destinations.flatMap((base) =>
       names.map((name) => ({ source: join(repo, "skills", name), destination: join(base, name) })),
     ),
+    {
+      source: join(repo, "tools", budgetHook),
+      destination: join(home, ".claude", "hooks", budgetHook),
+    },
   ];
+
+  const settingsPath = join(home, ".claude", "settings.json");
+  const settings = readSettings(settingsPath);
+  const hookCommand = `${quote(process.execPath)} ${quote(join(home, ".claude", "hooks", budgetHook))}`;
 
   const legacy = join(home, "dev", "Amirreza.md");
 
@@ -202,6 +270,8 @@ function main(): void {
       symlinkSync(source, destination);
     }
   }
+
+  registerBudgetHook(settingsPath, settings, hookCommand, !options.has("--dry-run"));
 }
 
 try {
