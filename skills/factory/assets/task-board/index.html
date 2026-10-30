@@ -705,7 +705,15 @@ function crumbs(ancestors: Task[], expanded: boolean): Crumb[] {
   return [all[0], { kind: "gap", key: "gap" }, ...all.slice(-2)];
 }
 
-function TaskReader({ root, onClose }: { root: Task | null; onClose: () => void }) {
+function TaskReader({
+  root,
+  onClose,
+  liveKey,
+}: {
+  root: Task | null;
+  onClose: () => void;
+  liveKey: number;
+}) {
   const [trail, setTrail] = React.useState<Task[]>([]);
   const [dir, setDir] = React.useState<"in" | "out">("in");
   const [expandCrumbs, setExpandCrumbs] = React.useState(false);
@@ -757,6 +765,21 @@ function TaskReader({ root, onClose }: { root: Task | null; onClose: () => void 
 
     return () => controller.abort();
   }, [task?.id, reloadKey]);
+  React.useEffect(() => {
+    if (!task || liveKey === 0) return;
+    const controller = new AbortController();
+
+    request(`/api/tasks/${task.id.split("/").map(encodeURIComponent).join("/")}`, {
+      signal: controller.signal,
+    })
+      .then((value) => {
+        if (!controller.signal.aborted)
+          setDocuments(Schema.decodeUnknownSync(documentsSchema)(value));
+      })
+      .catch(() => undefined);
+
+    return () => controller.abort();
+  }, [liveKey]);
 
   function go(index: number) {
     levelChanged.current = true;
@@ -952,6 +975,7 @@ function App() {
   const boardRef = React.useRef<HTMLDivElement>(null);
   const saving = React.useRef(false);
   const pickedRef = React.useRef<Picked | null>(null);
+  const [liveKey, setLiveKey] = React.useState(0);
   React.useEffect(() => {
     const controller = new AbortController();
     request("/api/board", { signal: controller.signal })
@@ -959,6 +983,7 @@ function App() {
         if (!controller.signal.aborted) {
           const data = Schema.decodeUnknownSync(boardSchema)(value);
           setBoard(data);
+          setError("");
           document.title = data.project + " — Tasks";
         }
       })
@@ -967,6 +992,16 @@ function App() {
       });
 
     return () => controller.abort();
+  }, [liveKey]);
+  React.useEffect(() => {
+    // EventSource reconnects on its own; a "change" event means task files changed on disk.
+    const events = new EventSource("/api/events");
+
+    events.addEventListener("change", () => {
+      if (!saving.current && !pickedRef.current) setLiveKey((key) => key + 1);
+    });
+
+    return () => events.close();
   }, []);
 
   function pick(value: Picked) {
@@ -1129,7 +1164,7 @@ function App() {
           );
         })}
       </div>
-      <TaskReader root={selected} onClose={() => setSelected(null)} />
+      <TaskReader root={selected} onClose={() => setSelected(null)} liveKey={liveKey} />
     </main>
   );
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { JSDOM, VirtualConsole } from "jsdom";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { Schema } from "effect";
 import { tmpdir } from "node:os";
@@ -147,7 +147,7 @@ async function eventually(check: () => boolean): Promise<void> {
   assert.ok(check(), "Expected UI state was not reached");
 }
 
-async function mount(base: string) {
+async function mount(base: string, live = false) {
   const dom = new JSDOM(await (await fetch(base)).text(), {
     url: base,
     runScripts: "outside-only",
@@ -170,6 +170,33 @@ async function mount(base: string) {
       headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: base },
     });
   };
+
+  const streams = new AbortController();
+  // jsdom has no EventSource, so read the SSE stream with fetch and dispatch its change events.
+  // SAFETY: the stub implements the only EventSource members the board uses.
+  window.EventSource = class {
+    listeners: Array<() => void> = [];
+    constructor(path: string) {
+      void fetch(new URL(path, base), { signal: streams.signal })
+        .then(async (response) => {
+          const decoder = new TextDecoder();
+
+          for await (const chunk of response.body ?? []) {
+            // Other tests count requests, so only the live test reacts to the setup writes.
+            if (live && decoder.decode(chunk).includes("event: change"))
+              for (const listener of this.listeners) listener();
+          }
+        })
+        .catch(() => undefined);
+    }
+    addEventListener(_name: string, listener: () => void) {
+      this.listeners.push(listener);
+    }
+    close() {
+      streams.abort();
+    }
+  } as never;
+  window.addEventListener("unload", () => streams.abort());
 
   window.eval(await (await fetch(`${base}/app.js`)).text());
   await eventually(() => window.document.querySelector('[data-task="move-task"]') !== null);
@@ -475,5 +502,24 @@ test("task detail lists nested subtasks and serves their documents by path", asy
     assert.equal((await fetch(`${base}/api/tasks/parent-task/first-step`)).status, 200);
     assert.equal((await fetch(`${base}/api/tasks/parent-task/first-step/deep-step`)).status, 200);
     assert.equal((await fetch(`${base}/api/tasks/parent-task/missing`)).status, 404);
+  });
+});
+
+test("React board refreshes when task files change on disk", async () => {
+  await fixture(async (base, tasks) => {
+    await task(tasks, "move-task");
+    const { window } = await mount(base, true);
+
+    try {
+      await task(tasks, "new-task");
+      await eventually(() => window.document.querySelector('[data-task="new-task"]') !== null);
+      await mkdir(join(tasks, "done"), { recursive: true });
+      await rename(join(tasks, "backlog", "new-task"), join(tasks, "done", "new-task"));
+      await eventually(
+        () => window.document.querySelector('[data-status="done"] [data-task="new-task"]') !== null,
+      );
+    } finally {
+      window.close();
+    }
   });
 });

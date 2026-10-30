@@ -1,6 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { constants } from "node:fs";
+import { constants, watch } from "node:fs";
 import { lstat, mkdir, open, readdir, readFile, rename } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -394,6 +394,29 @@ function json<T>(response: ServerResponse, value: T): void {
   response.end(JSON.stringify(value));
 }
 
+const listeners = new Set<ServerResponse>();
+let notifyTimer: NodeJS.Timeout | undefined;
+
+// Task files change in bursts (editor saves, git checkouts), so coalesce them into one event.
+function notifyChange() {
+  clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(() => {
+    for (const listener of listeners) listener.write("event: change\ndata: {}\n\n");
+  }, 150);
+}
+
+function openEvents(request: IncomingMessage, response: ServerResponse) {
+  response.writeHead(200, { "Content-Type": "text/event-stream", Connection: "keep-alive" });
+  response.write(": connected\n\n");
+  listeners.add(response);
+  const heartbeat = setInterval(() => response.write(": ping\n\n"), 25000);
+
+  request.on("close", () => {
+    clearInterval(heartbeat);
+    listeners.delete(response);
+  });
+}
+
 async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const address = `127.0.0.1:${port}`;
   response.setHeader(
@@ -422,6 +445,8 @@ async function handle(request: IncomingMessage, response: ServerResponse): Promi
   } else if (request.method === "GET" && url.pathname === "/") {
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.end(assets.html);
+  } else if (request.method === "GET" && url.pathname === "/api/events") {
+    openEvents(request, response);
   } else if (request.method === "GET" && url.pathname === "/api/board") {
     json(response, { project: await projectName(), token, ...(await listTasks()) });
   } else if (request.method === "GET" && url.pathname.startsWith("/api/tasks/")) {
@@ -480,6 +505,13 @@ const server = createServer((request, response) => {
 });
 
 server.requestTimeout = 10000;
+
+// Recursive watching is supported on macOS and Windows; elsewhere the board falls back to reloads.
+try {
+  watch(root, { recursive: true }, notifyChange).on("error", () => undefined);
+} catch {
+  console.warn("File watching is unavailable; reload the board to see task changes.");
+}
 
 server.on("error", (error) => {
   console.error(error.message);
