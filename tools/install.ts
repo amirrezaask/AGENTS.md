@@ -246,6 +246,10 @@ function main(): void {
       source: join(repo, "tools", budgetHook),
       destination: join(home, ".claude", "hooks", budgetHook),
     },
+    {
+      source: join(repo, "skills", "factory", "assets", "task-board", "bin.js"),
+      destination: join(home, ".local", "bin", "factoryboard"),
+    },
   ];
 
   const settingsPath = join(home, ".claude", "settings.json");
