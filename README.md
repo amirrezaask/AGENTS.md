@@ -118,13 +118,15 @@ The installer links `AGENTS.md` and global template aliases into `~/.agents`,
 folders and Cursor's `~/.cursor/skills-cursor/`. It never replaces the whole
 skills directory. Edits propagate through symlinks; rerun after catalog changes.
 
-It also installs the Claude session budget hook: `tools/session-budget-hook.ts` links to
-`~/.claude/hooks/` and a `PostToolUse` entry is added to `~/.claude/settings.json`
-(other settings and hooks are left untouched; unparseable settings abort the install).
-After 150 transcript lines the hook tells the model to commit and start a fresh session
-with a short brief, repeating on every tool call past 250. Tune with
-`SESSION_BUDGET_WARN` and `SESSION_BUDGET_HARD`. The entry stores the absolute path of the
-`node` that ran the installer, so rerun the installer after upgrading Node.
+It also installs the Claude session hook: `tools/session-budget-hook.ts` links to
+`~/.claude/hooks/` and `SessionStart`, `PreToolUse` and `Stop` entries are added to
+`~/.claude/settings.json` (other settings and hooks are left untouched; unparseable
+settings abort the install). The hook keeps autonomous sessions from asking ADMIN
+questions or forking sessions. Context size is left to Claude Code: the installer sets
+`autoCompactWindow` to 300000 when it is unset, so sessions compact themselves at about
+300K tokens, guided by the Compact Instructions section of `AGENTS.md`. The entries
+store the absolute path of the `node` that ran the installer, so rerun the installer
+after upgrading Node.
 
 ```sh
 npm run install:agents -- --list

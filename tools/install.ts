@@ -59,10 +59,18 @@ interface HookGroup {
 }
 
 interface Settings {
+  autoCompactWindow?: number | string;
   hooks?: Record<string, HookGroup[]>;
 }
 
 const budgetHook = "session-budget-hook.ts";
+
+// Claude Code compacts the session itself once context reaches this many tokens;
+// the "Compact Instructions" section of AGENTS.md steers what the summary keeps.
+const autoCompactWindow = 300_000;
+
+// Events our entry used to be registered for.
+const retiredHookEvents = ["PostToolUse"];
 
 function quote(path: string): string {
   return `'${path.replaceAll("'", "'\\''")}'`;
@@ -94,7 +102,6 @@ const budgetHookEvents: [string, string | undefined][] = [
     "PreToolUse",
     "AskUserQuestion|mcp__ccd_turn__wrap_up|mcp__ccd_session__start_session|mcp__ccd_session__hand_off_to_session",
   ],
-  ["PostToolUse", "*"],
   ["Stop", undefined],
 ];
 
@@ -102,6 +109,32 @@ const budgetHookEvents: [string, string | undefined][] = [
 // (found by script name), so other hooks in settings.json are never touched.
 function registerBudgetHook(path: string, settings: Settings, command: string, write: boolean) {
   let changed = false;
+
+  for (const event of retiredHookEvents) {
+    const groups = settings.hooks?.[event];
+
+    if (!groups) continue;
+
+    for (const group of groups) {
+      const before = group.hooks?.length ?? 0;
+      group.hooks = group.hooks?.filter((hook) => !hook.command?.includes(budgetHook));
+
+      if ((group.hooks?.length ?? 0) === before) continue;
+      console.log(`remove retired ${event} hook in ${path}`);
+      changed = true;
+    }
+
+    const kept = groups.filter((group) => group.hooks?.length);
+
+    if (kept.length) settings.hooks![event] = kept;
+    else delete settings.hooks![event];
+  }
+
+  if (settings.autoCompactWindow === undefined) {
+    console.log(`set autoCompactWindow ${autoCompactWindow} in ${path}`);
+    settings.autoCompactWindow = autoCompactWindow;
+    changed = true;
+  }
 
   for (const [event, matcher] of budgetHookEvents) {
     const groups = ((settings.hooks ??= {})[event] ??= []);

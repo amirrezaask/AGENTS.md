@@ -347,17 +347,16 @@ test("registers the session budget hook once, preserving existing settings and h
     const link = join(home, ".claude", "hooks", budgetHook);
     assert.equal(readlinkSync(link), join(root, "tools", budgetHook));
 
-    for (const event of ["PostToolUse", "Stop"]) {
-      assert.deepEqual(installed.hooks[event][0], other);
-      assert.equal(installed.hooks[event].length, 2);
-    }
+    assert.deepEqual(installed.hooks.Stop[0], other);
+    assert.equal(installed.hooks.Stop.length, 2);
 
-    for (const event of ["SessionStart", "PreToolUse", "PostToolUse", "Stop"]) {
+    for (const event of ["SessionStart", "PreToolUse", "Stop"]) {
       const ours = installed.hooks[event].at(-1);
       assert.ok(ours.hooks[0].command.includes(link));
     }
 
-    assert.equal(installed.hooks.PostToolUse[1].matcher, "*");
+    assert.deepEqual(installed.hooks.PostToolUse, [other]);
+    assert.equal(installed.autoCompactWindow, 300_000);
     assert.match(installed.hooks.PreToolUse[0].matcher, /AskUserQuestion/);
     assert.equal(installed.hooks.Stop[1].matcher, undefined);
 
@@ -365,11 +364,33 @@ test("registers the session budget hook once, preserving existing settings and h
     assert.equal(invoke(home).status, 0);
     assert.equal(readFileSync(settings, "utf8"), before);
 
-    installed.hooks.PostToolUse[1].hooks[0].command = `old ${budgetHook}`;
+    installed.hooks.Stop[1].hooks[0].command = `old ${budgetHook}`;
     installed.hooks.PreToolUse[0].matcher = "*";
     writeFileSync(settings, JSON.stringify(installed));
     assert.equal(invoke(home).status, 0);
     assert.equal(readFileSync(settings, "utf8"), before);
+  }));
+
+test("keeps a chosen autoCompactWindow and retires our old PostToolUse hook", () =>
+  isolated((home) => {
+    const settings = join(home, ".claude", "settings.json");
+    mkdirSync(join(home, ".claude"));
+    writeFileSync(
+      settings,
+      JSON.stringify({
+        autoCompactWindow: "500k",
+        hooks: {
+          PostToolUse: [
+            { matcher: "*", hooks: [{ type: "command", command: `node ${budgetHook}` }] },
+          ],
+        },
+      }),
+    );
+
+    assert.equal(invoke(home).status, 0);
+    const installed = readJson(settings);
+    assert.equal(installed.autoCompactWindow, "500k");
+    assert.equal(installed.hooks.PostToolUse, undefined);
   }));
 
 test("unparseable settings.json fails before any home mutation", () =>
@@ -407,10 +428,6 @@ interface HookEnv {
   SESSION_AUTONOMY?: string;
 }
 
-interface RecordFlags {
-  isSidechain?: boolean;
-}
-
 // Synthetic transcript records in Claude Code's JSONL shape.
 const readCall = (filePath: string) =>
   JSON.stringify({
@@ -419,20 +436,6 @@ const readCall = (filePath: string) =>
     message: {
       content: [{ type: "tool_use", id: "t1", name: "Read", input: { file_path: filePath } }],
     },
-  });
-
-const usage = (tokens: number, extra: RecordFlags = {}) =>
-  JSON.stringify({
-    type: "assistant",
-    message: {
-      content: [{ type: "text", text: "working" }],
-      usage: {
-        input_tokens: 4,
-        cache_creation_input_tokens: 996,
-        cache_read_input_tokens: tokens - 1000,
-      },
-    },
-    ...extra,
   });
 
 const toolUse = (name: string, id: string, messageId: string) =>
@@ -451,8 +454,6 @@ function hookSession(
       const result = spawnSync(process.execPath, [join(root, "tools", budgetHook)], {
         env: {
           ...process.env,
-          SESSION_BUDGET_WARN: "400000",
-          SESSION_BUDGET_HARD: "700000",
           ...env,
         },
         input: JSON.stringify({ session_id: sessionId, cwd: home, ...input }),
@@ -473,37 +474,6 @@ function hookSession(
     }
   });
 }
-
-test("PostToolUse budget uses context tokens, not transcript lines", () =>
-  hookSession((hook, home) => {
-    const transcript = join(home, "t.jsonl");
-
-    const post = (extra: HookPayload = {}) =>
-      hook({ hook_event_name: "PostToolUse", transcript_path: transcript, ...extra });
-
-    writeFileSync(transcript, `${'{"type":"queue-operation"}\n'.repeat(5000)}${usage(150_000)}\n`);
-    assert.equal(post(), "");
-
-    writeFileSync(
-      transcript,
-      `${usage(410_000)}\n${usage(900_000, { isSidechain: true })}\n${'{"type":"attachment"}\n'.repeat(10)}`,
-    );
-    const soft = JSON.parse(post()).hookSpecificOutput;
-    assert.equal(soft.hookEventName, "PostToolUse");
-    assert.match(soft.additionalContext, /410k tokens/);
-    assert.match(soft.additionalContext, /do not start a session/);
-    assert.equal(post(), "");
-
-    writeFileSync(transcript, `${usage(720_000)}\n`);
-    assert.match(post(), /exactly one session.*list_sessions|list_sessions.*exactly one session/);
-    writeFileSync(transcript, `${usage(780_000)}\n`);
-    assert.equal(post(), "");
-    writeFileSync(transcript, `${usage(830_000)}\n`);
-    assert.match(post(), /830k tokens/);
-
-    assert.equal(post({ agent_id: "sub" }), "");
-    assert.equal(post({ transcript_path: join(home, "missing") }), "");
-  }));
 
 test("PreToolUse denies questions to ADMIN and unchecked or forked sessions", () =>
   hookSession((hook, home) => {

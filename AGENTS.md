@@ -38,6 +38,9 @@ Never add a top-level directory without asking. Beyond the stack's own source la
 - **No leftover files.** Add no Markdown or JSON that nothing will read again (progress notes, handoffs, summaries, audit dumps, receipts). Delete your own scratch files, `.work` contents and stray processes when the request is done.
 - **No leftover worktrees** All agents should cleanup worktrees they create after they have committed all changes on the target branch.
 
+## Compact Instructions
+When the conversation is compacted, keep ADMIN's main goal: the request being worked, the approved brief and plan paths, decisions made and why, files changed, and the next action. Drop unrelated side questions ADMIN asked and their answers, and exploration that led nowhere.
+
 ## Documentation workflow
 
 For software development work, read [Factory](skills/factory/SKILL.md) and follow

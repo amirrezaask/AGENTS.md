@@ -11,16 +11,14 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
-// Claude Code hook installed by tools/install.ts for SessionStart, PreToolUse,
-// PostToolUse and Stop. It keeps ADMIN's autonomous sessions on the rules in
-// AGENTS.md: one session per task, no questions to ADMIN, and at most one fresh
-// continuation once the context is genuinely large. Every handler fails open.
+// Claude Code hook installed by tools/install.ts for SessionStart, PreToolUse
+// and Stop. It keeps ADMIN's autonomous sessions on the rules in AGENTS.md: one
+// session per task and no questions to ADMIN. Context size is not managed here:
+// installed settings set autoCompactWindow, so Claude Code compacts the session
+// itself and SessionStart re-grounds it afterwards. Every handler fails open.
 
 const env = process.env;
 const autonomous = env.SESSION_AUTONOMY !== "off";
-const warnAt = Number(env.SESSION_BUDGET_WARN ?? 400_000);
-const hardAt = Number(env.SESSION_BUDGET_HARD ?? 700_000);
-const repeatEvery = Number(env.SESSION_BUDGET_REPEAT ?? 100_000);
 const maxStopBlocks = Number(env.SESSION_STOP_BLOCKS ?? 5);
 
 const listSessions = "mcp__ccd_session_mgmt__list_sessions";
@@ -50,8 +48,6 @@ interface HookInput {
 }
 
 interface State {
-  warned?: boolean;
-  hardNoticeAt?: number;
   stopBlocks?: number;
   toolUsesAtBlock?: number;
 }
@@ -69,11 +65,6 @@ interface TranscriptLine {
   message?: {
     id?: string;
     content?: string | ContentBlock[];
-    usage?: {
-      input_tokens?: number;
-      cache_creation_input_tokens?: number;
-      cache_read_input_tokens?: number;
-    };
   };
 }
 
@@ -155,31 +146,6 @@ function tailLines(path: string, bytes: number): string[] {
   if (length < size) lines.shift();
 
   return lines.filter(Boolean).reverse();
-}
-
-// Context size of the latest main-chain request: everything the model was sent,
-// cached or not. This is what each further call costs, unlike transcript lines,
-// which also count queue, attachment and request-blob records.
-function contextTokens(path: string): number | undefined {
-  const size = statSync(path).size;
-
-  for (let bytes = 1 << 20; ; bytes *= 8) {
-    for (const raw of tailLines(path, bytes)) {
-      if (!raw.includes('"usage"')) continue;
-      const line = parse(raw);
-      const usage = line?.message?.usage;
-
-      if (line?.type !== "assistant" || line.isSidechain || !usage) continue;
-
-      return (
-        (usage.input_tokens ?? 0) +
-        (usage.cache_creation_input_tokens ?? 0) +
-        (usage.cache_read_input_tokens ?? 0)
-      );
-    }
-
-    if (bytes >= size) return undefined;
-  }
 }
 
 function lastAssistantText(path: string): string {
@@ -303,7 +269,7 @@ function sessionStart(input: HookInput): void {
 
   context(
     "SessionStart",
-    `Autonomous session (AGENTS.md): never ask ADMIN anything or end a turn waiting for ADMIN; decide, record the decision in PLAN.md, continue. Before working a task, call list_sessions: if a live session already works that task, take a different unowned subtask or end. Title this session after its task. Start other sessions only for independent subtasks, or once as a continuation after the budget hook's hard notice; never once the task is done.${resumed}${listed}`,
+    `Autonomous session (AGENTS.md): never ask ADMIN anything or end a turn waiting for ADMIN; decide, record the decision in PLAN.md, continue. Before working a task, call list_sessions: if a live session already works that task, take a different unowned subtask or end. Title this session after its task. Start other sessions only for independent subtasks. Never start one to continue this task: Claude Code compacts the context itself.${resumed}${listed}`,
   );
 }
 
@@ -357,7 +323,7 @@ function preToolUse(input: HookInput): void {
 
   if (tool === handOff) {
     deny(
-      "hand_off_to_session forks this whole context into a second worker. Keep working here; a continuation, when the budget hook's hard notice calls for one, is start_session with context fresh and the PLAN.md path in its prompt.",
+      "hand_off_to_session forks this whole context into a second worker. Keep working here: Claude Code compacts the context automatically, and the PLAN.md Handoff carries the task across it.",
     );
 
     return;
@@ -382,34 +348,7 @@ function preToolUse(input: HookInput): void {
   if (newestCall(lines, listSessions) > newestCall(lines, startSession, input.tool_use_id)) return;
 
   deny(
-    `Call list_sessions first (load it with ToolSearch "select:${listSessions}" if needed) and confirm no live session already works this task or subtask; then start the session. A continuation is one fresh session after the budget hook's hard notice, never when the task is done.`,
-  );
-}
-
-function postToolUse(input: HookInput): void {
-  if (input.agent_id || !input.transcript_path || !existsSync(input.transcript_path)) return;
-  const tokens = contextTokens(input.transcript_path);
-
-  if (tokens === undefined || tokens < warnAt) return;
-  const state = loadState(input);
-  const k = (value: number) => `${Math.round(value / 1000)}k`;
-
-  if (tokens < hardAt) {
-    if (state.warned) return;
-    saveState(input, { ...state, warned: true });
-    context(
-      "PostToolUse",
-      `Session budget: context is ${k(tokens)} tokens (notice at ${k(warnAt)}, hand-off at ${k(hardAt)}). No action now: keep working here and do not start a session because of this notice. At your next commit, bring the PLAN.md Handoff up to date.`,
-    );
-
-    return;
-  }
-
-  if (state.hardNoticeAt !== undefined && tokens < state.hardNoticeAt + repeatEvery) return;
-  saveState(input, { ...state, warned: true, hardNoticeAt: tokens });
-  context(
-    "PostToolUse",
-    `Session budget: context is ${k(tokens)} tokens (hand-off at ${k(hardAt)}); every further call re-sends all of it. Finish the current step, commit, and update the PLAN.md Handoff (starting point, decisions, next action). Then: if the task is done, finish it (debrief, move to done/) and end with no continuation. Otherwise call list_sessions; if a live session already works this task, end here. Otherwise start exactly one session (start_session, initiation user_asked, context fresh, source_branch = your branch tip) whose prompt names the task's PLAN.md and says to continue from its Handoff, then end your turn with a statement. Never ask ADMIN.`,
+    `Call list_sessions first (load it with ToolSearch "select:${listSessions}" if needed) and confirm no live session already works this task or subtask; then start the session.`,
   );
 }
 
@@ -452,7 +391,6 @@ function main(): void {
   if (input.hook_event_name === "SessionStart") sessionStart(input);
   else if (input.hook_event_name === "PreToolUse") preToolUse(input);
   else if (input.hook_event_name === "Stop") stop(input);
-  else postToolUse(input);
 }
 
 try {
