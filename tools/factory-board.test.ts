@@ -205,7 +205,7 @@ test("React assets and task APIs preserve document rendering, status writes, and
     assert.doesNotMatch(html, /type="text\/tsx"/);
     const css = await (await fetch(`${base}/app.css`)).text();
     assert.match(css, /Anthropic Serif/);
-    assert.match(css, /80vw/);
+    assert.match(css, /99vw/);
     assert.match(css, /90dvh/);
     const script = await (await fetch(`${base}/app.js`)).text();
     assert.doesNotMatch(script, /location\.reload|window\.location/);
